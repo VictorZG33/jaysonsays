@@ -1,0 +1,16 @@
+# The server behind 杰神模拟器 Jieshen Simulator (wentaoz.com/jieshen/).
+# .github/workflows/worker.yml deploys it whenever this folder, sim.js or reviews.js changes on main.
+name = "jaysonsays"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true      # served at https://jaysonsays.<your subdomain>.workers.dev
+
+# At most 3 questions per minute from one IP address, counted per Cloudflare location.
+# A question takes longer than that anyway; this only slows down a script hammering the Worker.
+[[ratelimits]]
+name = "ASK_LIMIT"
+namespace_id = "1002"
+
+  [ratelimits.simple]
+  limit = 3
+  period = 60

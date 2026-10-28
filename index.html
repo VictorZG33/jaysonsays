@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="杰神模拟器 Jieshen Simulator: photograph a wine label or type the wine, and see 杰神's score for it, as he published it or as he would likely give it.">
+<meta property="og:title" content="杰神模拟器 Jieshen Simulator">
+<meta property="og:description" content="Photograph a wine label and see what 杰神 gave it, or what he would.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://wentaoz.com/jaysonsays/">
+<meta property="og:site_name" content="Wentao Zhang">
+<meta property="og:image" content="https://wentaoz.com/jaysonsays/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="杰神模拟器 Jieshen Simulator, a wine identified from its label with 杰神's score.">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+/* Apply the theme picked with the Dark button (here or on the homepage) before first paint */
+(function () { try { var t = localStorage.getItem('wentaoz.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+</script>
+<link rel="canonical" href="https://wentaoz.com/jaysonsays/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%238A1C2D%22%2F%3E%3Cpath%20d%3D%22M10%206h12c0%208-2%2012-6%2012s-6-4-6-12zM16%2018v7M11%2026h10%22%20fill%3D%22none%22%20stroke%3D%22%23EFEEE8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M10.6%2011h10.8c-.5%204-2.3%206-5.4%206s-4.9-2-5.4-6z%22%20fill%3D%22%23EFEEE8%22%2F%3E%3C%2Fsvg%3E">
+<title>杰神模拟器 Jieshen Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;1,6..96,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Serif+SC:wght@600;900&display=swap">
+<style>
+/* Layout: one column like a critic's tasting sheet. The bottle (photo or name) first, then the
+   verdict: what the wine is, then the score set large in Bodoni. Wine Moon's limestone and garnet,
+   since it is the same cellar. A score he published is a solid garnet seal; a simulated one is the
+   same seal drawn in a dashed line, so the two never look alike. */
+:root {
+  --bg: #EFEEE8;
+  --surface: #F7F6F1;
+  --fg: #1F1A1C;
+  --muted: #6B6366;
+  --rule: #D5D1C8;
+  --rule-strong: #9C958F;
+  --garnet: #8A1C2D;  --garnet-soft: #EBD3D6;
+  --gold: #8C6312;    --gold-soft: #EFE3C2;
+  --on-garnet: #F7F6F1;
+  --display-latin: "Bodoni Moda", "Didot", "Bodoni 72", "Times New Roman", serif;
+  --display-cjk: "Noto Serif SC", "Songti SC", "STSong", "Source Han Serif SC", "SimSun", serif;
+  --body: "IBM Plex Sans", -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17141A; --surface: #1F1B22; --fg: #ECE6DF; --muted: #9A918E; --rule: #352F36; --rule-strong: #5A535B;
+    --garnet: #E0667A; --garnet-soft: #3B2228; --gold: #E2B657; --gold-soft: #3A2F17; --on-garnet: #17141A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17141A; --surface: #1F1B22; --fg: #ECE6DF; --muted: #9A918E; --rule: #352F36; --rule-strong: #5A535B;
+  --garnet: #E0667A; --garnet-soft: #3B2228; --gold: #E2B657; --gold-soft: #3A2F17; --on-garnet: #17141A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--body); font-size: 16px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.page {
+  max-width: 720px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 56px;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--garnet); outline-offset: 2px; }
+a { color: inherit; text-decoration-color: var(--garnet); text-underline-offset: 3px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* header */
+.home { display: inline-block; margin-bottom: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.home:hover, .home:focus-visible { color: var(--fg); }
+.top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--rule-strong); }
+.brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.brand .name { font-family: var(--display-cjk); font-weight: 900; font-size: 22px; letter-spacing: 0.06em; }
+.brand .name-latin { font-family: var(--display-latin); font-style: italic; font-size: 20px; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+/* keeps 杰神 in one piece inside English lines */
+.lang-en .eyebrow, .lang-en .lead, .lang-en .step-h, .lang-en .btn { word-break: keep-all; }
+.tools { display: flex; align-items: center; gap: 8px; flex: none; }
+.pill {
+  appearance: none; border: 1px solid var(--rule-strong); border-radius: 999px; background: transparent; color: var(--muted);
+  font: 500 12px/1 var(--body); padding: 7px 11px; cursor: pointer; letter-spacing: 0.04em;
+}
+.pill[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.lang { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 999px; overflow: hidden; flex: none; }
+.lang button { appearance: none; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--body); padding: 7px 11px; cursor: pointer; letter-spacing: 0.04em; }
+.lang button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+/* intro */
+.hero { display: grid; gap: 14px; padding-block: 28px 4px; }
+.lead { margin: 0; font-size: clamp(19px, 3.6vw, 23px); line-height: 1.4; font-weight: 500; max-width: 34em; }
+.lead-sub { margin: 0; color: var(--muted); max-width: 40em; }
+
+/* steps */
+.step { padding-block: 34px 4px; }
+.step-h { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 19px; font-weight: 600; line-height: 1.3; }
+.step-h .no {
+  display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--fg); color: var(--bg); font: 500 13px/1 var(--mono);
+}
+.hint { margin: 2px 0 0; font-size: 13.5px; color: var(--muted); }
+.msg { margin: 10px 0 0; font-size: 14.5px; }
+.msg:empty { display: none; }
+.msg.bad { color: var(--garnet); }
+
+.ask { display: grid; gap: 16px; }
+.drop {
+  display: grid; justify-items: center; gap: 6px; padding: 26px 16px; text-align: center; cursor: pointer;
+  background: var(--surface); border: 1.5px dashed var(--rule-strong); border-radius: 14px;
+}
+.drop:hover, .drop.over { border-color: var(--garnet); background: var(--garnet-soft); }
+.drop:focus-within { outline: 2px solid var(--garnet); outline-offset: 2px; }
+.drop .big { font-size: 17px; font-weight: 600; }
+.drop .small { font-size: 13.5px; color: var(--muted); max-width: 30em; }
+.drop svg { width: 34px; height: 34px; color: var(--garnet); }
+.photo { display: flex; align-items: center; gap: 14px; padding: 10px; background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; }
+.photo img { width: 88px; height: 88px; object-fit: cover; border-radius: 8px; background: var(--rule); flex: none; }
+.photo .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.photo p { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+.field { display: grid; gap: 6px; }
+.label { font-size: 13px; font-weight: 500; color: var(--muted); }
+input[type="text"], input[type="password"] {
+  width: 100%; min-height: 44px; padding: 10px 12px; font-size: 16px; line-height: 1.4;
+  background: var(--surface); border: 1px solid var(--rule-strong); border-radius: 8px;
+}
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.check input { width: 18px; height: 18px; accent-color: var(--garnet); flex: none; }
+.btn {
+  appearance: none; min-height: 44px; padding: 10px 16px; border: 1px solid var(--rule-strong); border-radius: 8px;
+  background: var(--surface); font-size: 15px; font-weight: 500; line-height: 1.2; cursor: pointer;
+}
+.btn:hover { border-color: var(--fg); }
+.btn.small { min-height: 34px; padding: 6px 12px; font-size: 13.5px; }
+.btn.primary { background: var(--garnet); color: var(--on-garnet); border-color: var(--garnet); min-width: 9em; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+/* progress: one line per thing Claude does, the newest one spinning */
+.steps { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+.steps li { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.steps li::before { content: "✓"; flex: none; width: 14px; color: var(--garnet); font-weight: 600; }
+.steps li span { overflow-wrap: anywhere; }
+.steps li.now::before { content: ""; align-self: center; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--rule-strong); border-top-color: var(--garnet); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .steps li.now::before { animation: none; } }
+
+/* the wine */
+.wine { padding: 16px 0 18px; border-top: 1px solid var(--rule-strong); border-bottom: 1px solid var(--rule); }
+.kicker { margin: 0 0 6px; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.kicker b { color: var(--fg); font-weight: 500; }
+.wine-name { margin: 0; font-family: var(--display-latin); font-weight: 700; font-size: clamp(22px, 5vw, 28px); line-height: 1.2; overflow-wrap: anywhere; }
+.wine-name .cuvee { display: block; font-weight: 400; font-style: italic; font-size: 0.78em; margin-top: 2px; }
+.wine-name .vint { font-family: var(--mono); font-weight: 500; font-style: normal; font-size: 0.62em; color: var(--garnet); margin-left: 0.35em; letter-spacing: 0.02em; white-space: nowrap; }
+.lang-zh .wine-name { font-family: var(--display-latin), var(--display-cjk); }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 14px 0 0; font-size: 14.5px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.wine-notes { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+
+/* the verdict */
+.verdict { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px 24px; padding: 22px 0 6px; }
+@media (max-width: 520px) { .verdict { grid-template-columns: minmax(0, 1fr); } }
+.seal {
+  display: grid; justify-items: center; align-content: center; gap: 2px; width: 148px; height: 148px; border-radius: 50%;
+  background: var(--garnet); color: var(--on-garnet); text-align: center; align-self: start;
+}
+.seal .stamp { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; }
+.lang-zh .seal .stamp { font-family: var(--display-cjk); font-size: 13px; letter-spacing: 0.3em; text-transform: none; margin-right: -0.3em; }
+.seal .score { font-family: var(--display-latin); font-weight: 700; font-size: 58px; line-height: 1; font-variant-numeric: lining-nums; letter-spacing: -0.01em; }
+.seal .scale { font-family: var(--mono); font-size: 11px; opacity: 0.85; }
+.verdict.predicted .seal { background: transparent; color: var(--garnet); border: 2px dashed var(--garnet); }
+.verdict.none .seal { background: transparent; color: var(--muted); border: 2px dashed var(--rule-strong); }
+.verdict.none .seal .score { font-family: var(--body); font-weight: 500; font-size: 44px; }
+.seal .star { font-style: normal; font-family: var(--body); font-size: 0.5em; vertical-align: 0.45em; margin-left: 0.04em; }
+.seal .score.words { font-family: var(--display-cjk); font-weight: 900; font-size: 24px; line-height: 1.25; padding: 4px 14px; overflow-wrap: anywhere; }
+.say { min-width: 0; }
+.review { margin: 0; font-family: var(--display-cjk); font-weight: 600; font-size: 17.5px; line-height: 1.7; }
+.lang-en .review { font-family: var(--display-latin); font-weight: 400; font-style: italic; font-size: 19px; line-height: 1.55; }
+.review::before { content: "“"; color: var(--garnet); margin-right: 1px; }
+.review::after { content: "”"; color: var(--garnet); margin-left: 1px; }
+.byline { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.why-h { margin: 18px 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.why { margin: 0; font-size: 14.5px; }
+.srcs { margin: 4px 0 0; padding-left: 1.2em; font-size: 14px; }
+.srcs li { overflow-wrap: anywhere; }
+.srcs li + li { margin-top: 3px; }
+.srcs .d { color: var(--muted); font-family: var(--mono); font-size: 12.5px; margin-left: 6px; }
+.interest { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; background: var(--gold-soft); font-size: 13.5px; }
+.interest b { font-weight: 600; margin-right: 8px; }
+.key { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
+.sogou { margin: 14px 0 0; font-size: 13.5px; color: var(--muted); }
+.sogou a { color: var(--fg); }
+
+/* 杰神 among the other critics, on one line of the 100-point scale */
+.critics { margin-top: 22px; padding: 14px 16px 12px; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; }
+.critics h4 { margin: 0 0 30px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.track { position: relative; height: 2px; margin: 0 14px; background: var(--rule-strong); }
+.dot { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: var(--fg); }
+.dot.jie { width: 16px; height: 16px; background: var(--garnet); z-index: 1; }
+.dot.jie.hollow { background: var(--surface); border: 2px dashed var(--garnet); }
+.dot b { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); font: 500 12px/1 var(--mono); white-space: nowrap; }
+.dot.jie b { color: var(--garnet); }
+.ticks { display: flex; justify-content: space-between; margin: 10px 14px 0; font: 400 11px/1 var(--mono); color: var(--muted); }
+.who { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.who b { color: var(--fg); font-weight: 600; font-family: var(--mono); font-size: 12.5px; }
+.who a { color: inherit; }
+
+.fine { margin: 18px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--gold-soft); font-size: 13.5px; }
+.prose { font-size: 15px; line-height: 1.65; }
+.prose p { margin: 0 0 10px; }
+.meta { margin: 12px 0 0; font: 400 12.5px/1.5 var(--mono); color: var(--muted); }
+.meta:empty { display: none; }
+
+/* method */
+details { border-top: 1px solid var(--rule); margin-top: 40px; }
+summary { cursor: pointer; padding: 16px 0; font-weight: 600; font-size: 15px; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-family: var(--mono); color: var(--muted); font-size: 18px; }
+details[open] summary::after { content: "–"; }
+.method { padding: 0 0 18px; font-size: 14.5px; max-width: 62ch; }
+.method p { margin: 0 0 12px; }
+.method .k { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--rule-strong); font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+footer .sig { font-family: var(--display-latin); font-style: italic; font-size: 16px; color: var(--fg); }
+.lang-zh footer .sig { font-family: var(--display-cjk); font-style: normal; font-weight: 900; letter-spacing: 0.06em; }
+.nojs { margin: 22px 0 0; font-size: 17px; max-width: 34em; }
+</style>
+<noscript><style>.tools, .step, details, footer { display: none; }</style></noscript>
+</head>
+<body>
+<div class="page lang-zh" id="page">
+  <header class="top">
+    <div>
+      <a class="home" href="../">← wentaoz.com</a>
+      <div class="brand"><span class="name" lang="zh-CN">杰神模拟器</span><span class="name-latin" lang="en">Jieshen Simulator</span></div>
+      <div class="eyebrow" id="eyebrow"></div>
+    </div>
+    <div class="tools">
+      <button type="button" class="pill" id="btn-theme" aria-pressed="false" hidden></button>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" id="btn-zh" aria-pressed="true" lang="zh-CN">中文</button>
+        <button type="button" id="btn-en" aria-pressed="false" lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <noscript><p class="nojs">杰神模拟器需要 JavaScript。请开启后刷新页面。<br><span lang="en">Jieshen Simulator needs JavaScript. Turn it on and reload.</span></p></noscript>
+
+  <section class="hero">
+    <p class="lead" id="lead"></p>
+    <p class="lead-sub" id="lead-sub"></p>
+  </section>
+
+  <section class="step" aria-labelledby="h-ask">
+    <h2 class="step-h"><span class="no" aria-hidden="true">1</span><span id="h-ask"></span></h2>
+    <form class="ask" id="ask" novalidate>
+      <label class="drop" id="drop" for="file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h2l1.5-2h6l1.5 2h2A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.8"/></svg>
+        <span class="big" id="drop-big"></span>
+        <span class="small" id="drop-small"></span>
+        <input type="file" id="file" accept="image/*" class="sr">
+      </label>
+      <div class="photo" id="photo" hidden>
+        <img id="photo-img" alt="">
+        <div>
+          <p id="photo-text"></p>
+          <div class="acts">
+            <button type="button" class="btn small" id="photo-change"></button>
+            <button type="button" class="btn small" id="photo-drop"></button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="text-input" id="text-label"></label>
+        <input type="text" id="text-input" maxlength="200" autocomplete="off" enterkeyhint="go">
+        <p class="hint" id="text-hint"></p>
+      </div>
+      <div class="field" id="mode-box">
+        <label class="check"><input type="checkbox" id="own-key"><span id="own-key-label"></span></label>
+        <p class="hint" id="mode-hint"></p>
+      </div>
+      <div class="field" id="key-box">
+        <label class="label" for="key-input" id="key-label"></label>
+        <input type="password" id="key-input" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+        <label class="check"><input type="checkbox" id="key-keep"><span id="key-keep-label"></span></label>
+        <p class="hint" id="key-hint"></p>
+      </div>
+      <div><button type="submit" class="btn primary" id="go"></button></div>
+      <p class="msg" id="ask-msg" role="alert"></p>
+    </form>
+  </section>
+
+  <section class="step" id="step-out" aria-labelledby="h-out" hidden>
+    <h2 class="step-h"><span class="no" aria-hidden="true">2</span><span id="h-out"></span></h2>
+    <ol class="steps" id="steps" aria-live="polite"></ol>
+    <div id="out"></div>
+    <p class="meta" id="meta"></p>
+  </section>
+
+  <details id="method-box">
+    <summary id="method-h"></summary>
+    <div class="method" id="method"></div>
+  </details>
+
+  <footer>
+    <span class="sig" id="foot-sig"></span>
+    <span id="foot-note"></span>
+  </footer>
+</div>
+
+<script type="module">
+// ---------- settings ----------
+// Visitors use the site's Anthropic API key through the Worker in worker/, which keeps the
+// key secret, unless they tick "use my own key": then the page calls Claude directly with the key
+// they paste. With ENDPOINT empty, their own key is the only way.
+const ENDPOINT = 'https://jaysonsays.wentaozhang1997.workers.dev';
+const SDK = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.133.0';
+// US$ for Claude Opus 5.5: per million tokens (cache writes 1.25×, cache reads 0.1× input), and per search
+const PRICE = { input: 4, output: 20, search: 0.01 };
+const SCALE = 100;        // 杰神 has scored out of 100 since 2019; predictions use it too
+const MAX_SIDE = 1568;    // photos are scaled to this long side, the most detail Claude uses
+const LANG_KEY = 'jaysonsays.lang', KEY_KEY = 'jaysonsays.apiKey';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const host = (u) => { try { return new URL(u).host.replace(/^www\./, ''); } catch (e) { return u; } };
+const isUrl = (u) => /^https?:\/\/[^\s]+$/i.test(u || '');
+
+// ---------- words ----------
+const I18N = {
+  zh: {
+    eyebrow: '拍酒标 · 认酒 · 杰神打分',
+    theme: '深色',
+    lead: '拍一张酒标，看看杰神会给几分。',
+    leadSub: '先认出这是哪款酒：酒庄、酒款、年份、产区和适饮期。再查杰神有没有评过：评过，就给出他的原始分数和出处；没评过，就按他一贯的打分习惯预测一个分数，并模仿他的口吻写一段短评。不拍照，直接输入酒名也行。',
+    hAsk: '这瓶酒',
+    dropBig: '拍酒标，或选一张照片',
+    dropSmall: '正面酒标，文字拍清楚。年份如果在瓶颈或背标上，也一起拍进去。',
+    photoText: '已选好照片。',
+    photoChange: '换一张', photoDrop: '不用照片',
+    textLabel: '或者直接输入酒名',
+    textPh: '例如：2019 Fait-Main Las Piedras',
+    textHint: '有照片时也可以补一句，比如照片里看不清的年份。',
+    ownKey: '用我自己的 Anthropic API key',
+    siteHint: '默认免费，用的是本站的额度。人多或本站额度用完时，可以改用你自己的 key。',
+    keyLabel: '你的 Anthropic API key',
+    keyKeep: '在这台设备上记住',
+    keyHint: '没有 key？在 console.anthropic.com 注册并充值后创建一个。key 只存在你的浏览器里，直接发给 Anthropic，不经过本站。每问一瓶大约花 0.05–0.35 美元，要上网查评家分数的贵一些。',
+    go: '问杰神', going: '正在问…',
+    needInput: '先拍一张酒标，或者输入酒名。',
+    needKey: '请先填你的 API key（以 sk-ant- 开头）。',
+    badPhoto: '读不了这张照片。换一张 JPEG 或 PNG 再试；iPhone 的 HEIC 照片请在 Safari 里选，或先导出为 JPEG。',
+    hOut: '杰神怎么说',
+    stepRead: '读酒标', stepText: '认酒',
+    stepSearch: (q) => `搜索「${q}」`,
+    stepDone: '完成',
+    conf: { high: '把握大', medium: '把握一般', low: '把握不大' },
+    kicker: '这是',
+    region: '产区', grapes: '品种', drink: '适饮期',
+    stamp: { found: '杰神原评', predicted: '模拟评分', none: '认不出' },
+    scaleOf: { 100: '满分 100', stars: '满分 6★', words: '文字评价' },
+    key: '怎么看杰神的分：93 及格，95 以上是真喜欢，98 以上惊艳，100 封神。同一款酒，他平均比 Parker 一系的评家低 4 分左右。',
+    interestH: '利益相关',
+    sogou: (p) => `在搜狗微信里搜「杰神 ${p}」`,
+    sogouHint: '评分表收到他 2025 年的榜单为止，之后的评价可能在这里。',
+    byFound: '分数照他发表的原样；短评是转述，原文见出处。',
+    byPredicted: '按杰神的打分习惯模拟，不是他本人写的。',
+    whyH: '为什么是这个分',
+    srcH: { found: '出处', predicted: '参照了他的这些评分' },
+    criticsH: '和其他酒评家放在一起',
+    jie: '杰神',
+    notWine: '没认出这是哪款酒。换一张更清楚的正面酒标，或者直接输入酒名再试。',
+    fine: '杰神模拟器是个玩具，和杰神本人没有关系。模拟评分只是按他公开文章里的打分习惯推出来的，不代表他的观点。',
+    noVerdict: '这次没有拿到完整的结论，下面是原文：',
+    refusal: 'AI 拒绝了这次请求，换一张照片或换个说法再试。',
+    truncated: '回答太长被截断了，再试一次。',
+    noAnswer: '这次没有得出结论，再试一次。',
+    usage: (u, cost) => `${u.searches} 次搜索 · 输入 ${u.input + u.cacheRead + u.cacheWrite} / 输出 ${u.output} tokens · 约 $${cost}`,
+    err: {
+      401: 'API key 无效或已被停用，请检查后再试。',
+      403: '这个 API key 没有权限调用这个模型。',
+      429: '请求太频繁或额度已用完，过一会儿再试。',
+      529: 'AI 服务现在很忙，过一会儿再试。',
+      net: '连不上 AI 服务，请检查网络后再试。',
+      siteBusy: '本站现在请求太多，过一两分钟再试，或者改用你自己的 API key。',
+      siteDown: '本站的 AI 暂时用不了（可能额度用完了）。勾选「用我自己的 Anthropic API key」可以继续。',
+      siteNet: '连不上本站的服务器。过一会儿再试，或者改用你自己的 API key。',
+      other: (m) => `出错了：${m}`,
+    },
+    methodH: '怎么做的',
+    method:
+      '<p><span class="k">杰神是谁</span><br>杰神是微信公众号「杰神自号」的作者，在南京做美国精品酒进口，也在纳帕有自己的酒庄。他每年把喝过的高端酒整理成「杰神葡萄酒榜单」，每款打分：2016 年用文字，2017–2018 年用 1–6 星，2019 年起用百分制。他说话直，打分比 Parker、Jeb Dunnuck 一系的评家平均低 4 分左右，93 分以下在他那里就算难喝。</p>' +
+      '<p><span class="k">怎么认酒</span><br>照片和你输入的文字一起交给 Anthropic 的 Claude 模型，它读出酒庄、酒款、年份和产区，按这款酒的名声和年份估一个适饮期。看不清的地方，它会说明自己猜了什么。</p>' +
+      '<p><span class="k">怎么查杰神的分数</span><br>他的分数都在微信文章的图片表格里，搜索引擎搜不到。所以这里用的是一张从他的榜单里整理出来的评分表：2016 到 2023 年的六份榜单逐张读图录入，每份的酒款数、满分酒数都和文中写的对得上（只有 2017 年原文自己就缺了 17 款）。2025 年的榜单不再打分，只给每款酒标一种颜色，颜色的意思是按他文中点名的酒推断的：红是超一流，蓝是顶级，黑是正常，橙是老了或名不副实，绿是糟糕，灰是最恶心。再加上他文章里点评过的酒，一共一千三百多条。酒庄、酒款、年份都对上才算他评过，并附上出处。</p>' +
+      '<p><span class="k">怎么预测</span><br>表里没有时，Claude 按他的打分习惯推一个百分制分数：先按产区定起点，再参照他给同一款酒其他年份、同一酒庄打过的分，还会上网查 Wine Advocate、Jeb Dunnuck 等评家给这款酒的分数作锚（最多搜 3 次），然后模仿他的口吻写一段短评。这一部分是模拟，页面上用虚线的印章标出来。</p>' +
+      '<p><span class="k">照片和费用</span><br>默认请求经本站的服务器转给 Anthropic，由本站付费，服务器不保存照片和回答。用你自己的 API key 时，请求从你的浏览器直接发给 Anthropic，费用记在你的账上。每问一瓶大约 0.05–0.35 美元。</p>' +
+      '<p><span class="k">声明</span><br>本页与杰神本人无关。他的分数和文章归他所有，这里只给分数、转述和出处链接。他代理或自己酿的酒，页面会注明。</p>',
+    footSig: '杰神模拟器', footNote: '开瓶之前，先问问杰神。',
+  },
+  en: {
+    eyebrow: 'Label in · 杰神’s score out',
+    theme: 'Dark',
+    lead: 'Photograph a wine label and see what 杰神 would give it.',
+    leadSub: 'The page first works out which wine it is: producer, cuvée, vintage, region and when to drink it. Then it checks whether 杰神 has scored it. If he has, you get his score and where he published it; if not, a prediction from the way he scores, with a short note in his voice. You can also just type the wine’s name.',
+    hAsk: 'The bottle',
+    dropBig: 'Photograph the label, or pick a photo',
+    dropSmall: 'The front label, with the text in focus. If the vintage is on the neck or the back label, get that in too.',
+    photoText: 'Photo ready.',
+    photoChange: 'Change', photoDrop: 'Remove',
+    textLabel: 'Or type the wine',
+    textPh: 'e.g. 2019 Fait-Main Las Piedras',
+    textHint: 'With a photo, add anything it doesn’t show clearly, such as the vintage.',
+    ownKey: 'Use my own Anthropic API key',
+    siteHint: 'Free by default, on the site’s credit. If the site is busy or its credit runs out, you can use your own key.',
+    keyLabel: 'Your Anthropic API key',
+    keyKeep: 'Remember on this device',
+    keyHint: 'No key? Sign up at console.anthropic.com, add credit and create one. The key stays in your browser and goes straight to Anthropic, never through this site. Each bottle costs about US$0.05–0.35, more when it has to look up other critics’ scores.',
+    go: 'Ask 杰神', going: 'Asking…',
+    needInput: 'Photograph a label or type a wine first.',
+    needKey: 'Enter your API key first (it starts with sk-ant-).',
+    badPhoto: 'This photo can’t be read. Try a JPEG or PNG; for an iPhone HEIC photo, pick it in Safari or export it as JPEG first.',
+    hOut: 'What 杰神 says',
+    stepRead: 'Reading the label', stepText: 'Working out the wine',
+    stepSearch: (q) => `Searching “${q}”`,
+    stepDone: 'Done',
+    conf: { high: 'sure', medium: 'fairly sure', low: 'not sure' },
+    kicker: 'This is',
+    region: 'Region', grapes: 'Grapes', drink: 'Drink',
+    stamp: { found: 'His score', predicted: 'Simulated', none: 'Unknown' },
+    scaleOf: { 100: 'out of 100', stars: 'out of 6★', words: 'in words' },
+    key: 'Reading his scores: 93 is a pass, 95 and up means he really likes it, 98 and up is stunning, 100 is legendary. On the same wine he averages about 4 points below the Parker school of critics.',
+    interestH: 'Interest',
+    sogou: (p) => `Search Sogou’s WeChat search for “杰神 ${p}”`,
+    sogouHint: 'The table runs to his 2025 list; anything newer may be here.',
+    byFound: 'The score is as he published it; the note is retold, so read the original at the source.',
+    byPredicted: 'Simulated from the way 杰神 scores. He didn’t write this.',
+    whyH: 'Why this score',
+    srcH: { found: 'Source', predicted: 'His scores it was compared with' },
+    criticsH: 'Next to other critics',
+    jie: '杰神',
+    notWine: 'Couldn’t tell which wine this is. Try a sharper photo of the front label, or type the name.',
+    fine: 'Jieshen Simulator is a toy and has nothing to do with 杰神 himself. Simulated scores are inferred from the scores in his published articles and are not his views.',
+    noVerdict: 'No complete verdict came back this time. Here is the raw answer:',
+    refusal: 'The AI declined this request. Try another photo or wording.',
+    truncated: 'The answer ran too long and was cut off. Try again.',
+    noAnswer: 'No verdict came back this time. Try again.',
+    usage: (u, cost) => `${u.searches} searches · ${u.input + u.cacheRead + u.cacheWrite} in / ${u.output} out tokens · about $${cost}`,
+    err: {
+      401: 'The API key is invalid or has been disabled. Check it and try again.',
+      403: 'This API key isn’t allowed to use this model.',
+      429: 'Too many requests, or the credit has run out. Try again in a while.',
+      529: 'The AI service is busy right now. Try again in a while.',
+      net: 'Couldn’t reach the AI service. Check your connection and try again.',
+      siteBusy: 'The site is getting too many requests. Try again in a minute or two, or use your own API key.',
+      siteDown: 'The site’s AI isn’t available right now (its credit may have run out). Tick “Use my own Anthropic API key” to carry on.',
+      siteNet: 'Couldn’t reach the site’s server. Try again in a while, or use your own API key.',
+      other: (m) => `Something went wrong: ${m}`,
+    },
+    methodH: 'How it works',
+    method:
+      '<p><span class="k">Who 杰神 is</span><br>杰神 (Jieshen) writes the Chinese WeChat account 杰神自号. He imports American wine in Nanjing and has his own winery in Napa. Every year he publishes 杰神葡萄酒榜单, a list of the fine wines he drank with a score for each: in words in 2016, 1 to 6 stars in 2017–2018, out of 100 since 2019. He is blunt, scores about 4 points below the Parker school on average, and calls anything under 93 hard to drink.</p>' +
+      '<p><span class="k">Identifying the wine</span><br>The photo and whatever you typed go to Anthropic’s Claude, which reads the producer, cuvée, vintage and region and estimates a drinking window from the wine’s reputation and the vintage. Where something is unreadable, it says what it assumed.</p>' +
+      '<p><span class="k">Finding his score</span><br>His scores are image tables inside WeChat articles, which search engines can’t see. So the page uses a table collected from his lists: every list from 2016 to 2025, read image by image, each matching the number of wines and of 100-point wines its article states (but for 17 wines of 2017 that the article itself lacks). The 2025 list has no scores, only a colour per wine, and the colours’ meanings are inferred from what he writes about the wines he names: red is outstanding, blue top-class, black ordinary, orange old or not worth its name, green poor, grey the most disgusting. With the wines his other articles judge, that is over 1,300 rows. It counts as his only when producer, wine and vintage all match, and it comes with the source.</p>' +
+      '<p><span class="k">Predicting</span><br>When the wine isn’t in the table, Claude predicts a score out of 100 the way he scores: a starting point for the region, then what he gave other vintages of the same wine and the same producer, anchored on other critics’ scores for the wine, such as Wine Advocate and Jeb Dunnuck, which it looks up on the web (at most 3 searches). Then it writes a short note in his voice. That part is a simulation, and the page marks it with a dashed seal.</p>' +
+      '<p><span class="k">Photos and cost</span><br>By default the request goes through this site’s server to Anthropic and the site pays; the server keeps neither the photo nor the answer. With your own API key, the request goes from your browser straight to Anthropic and is billed to you. Each bottle costs about US$0.05–0.35.</p>' +
+      '<p><span class="k">Disclaimer</span><br>This page has nothing to do with 杰神 himself. His scores and articles are his; this page shows only the scores, retold notes and links to the sources. Where he sells or makes the wine, the page says so.</p>',
+    footSig: 'Jieshen Simulator', footNote: 'Ask 杰神 before you pull the cork.',
+  },
+};
+
+// ---------- state ----------
+const state = { lang: 'zh', photo: null, busy: false, last: null };   // photo: base64 JPEG; last: what to redraw on a language switch
+try {
+  const saved = localStorage.getItem(LANG_KEY);
+  state.lang = saved === 'zh' || saved === 'en' ? saved : (navigator.language || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+} catch (e) { state.lang = 'zh'; }
+
+// ---------- static text ----------
+function setText(id, text) { $(id).textContent = text; }
+function say(id, text, bad) { const el = $(id); el.textContent = text || ''; el.classList.toggle('bad', !!bad); }
+function renderStatic() {
+  const T = I18N[state.lang];
+  $('page').className = 'page lang-' + state.lang;
+  document.documentElement.lang = state.lang === 'zh' ? 'zh-CN' : 'en';
+  $('btn-zh').setAttribute('aria-pressed', state.lang === 'zh');
+  $('btn-en').setAttribute('aria-pressed', state.lang === 'en');
+  setText('btn-theme', T.theme);
+  setText('eyebrow', T.eyebrow); setText('lead', T.lead); setText('lead-sub', T.leadSub);
+  setText('h-ask', T.hAsk); setText('drop-big', T.dropBig); setText('drop-small', T.dropSmall);
+  setText('photo-text', T.photoText); setText('photo-change', T.photoChange); setText('photo-drop', T.photoDrop);
+  setText('text-label', T.textLabel); $('text-input').placeholder = T.textPh; setText('text-hint', T.textHint);
+  setText('own-key-label', T.ownKey); setText('mode-hint', T.siteHint);
+  setText('key-label', T.keyLabel); setText('key-keep-label', T.keyKeep); setText('key-hint', T.keyHint);
+  setText('go', state.busy ? T.going : T.go);
+  setText('h-out', T.hOut);
+  setText('method-h', T.methodH); $('method').innerHTML = T.method;
+  setText('foot-sig', T.footSig); setText('foot-note', T.footNote);
+  if (state.last) renderOut();
+}
+
+// ---------- language and theme ----------
+$('btn-zh').addEventListener('click', () => setLang('zh'));
+$('btn-en').addEventListener('click', () => setLang('en'));
+function setLang(l) {
+  state.lang = l;
+  try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
+  renderStatic();
+}
+const root = document.documentElement;
+const mqDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+const isDark = () => { const t = root.getAttribute('data-theme'); return t ? t === 'dark' : !!(mqDark && mqDark.matches); };
+const showTheme = () => $('btn-theme').setAttribute('aria-pressed', isDark() ? 'true' : 'false');
+$('btn-theme').addEventListener('click', () => {
+  const next = isDark() ? 'light' : 'dark', system = mqDark && mqDark.matches ? 'dark' : 'light';
+  // picking what the system already shows clears the choice, so the page follows the system again
+  if (next === system) root.removeAttribute('data-theme'); else root.setAttribute('data-theme', next);
+  try { if (next === system) localStorage.removeItem('wentaoz.theme'); else localStorage.setItem('wentaoz.theme', next); } catch (e) {}
+  showTheme();
+});
+if (mqDark && mqDark.addEventListener) mqDark.addEventListener('change', showTheme);
+showTheme();
+$('btn-theme').hidden = false;
+
+// ---------- the photo ----------
+// Scaled to at most MAX_SIDE on the long side and sent as JPEG; the browser applies the photo's
+// rotation when it decodes it.
+async function takePhoto(file) {
+  const T = I18N[state.lang];
+  say('ask-msg', '');
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const sc = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(img.naturalWidth * sc); cv.height = Math.round(img.naturalHeight * sc);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    const data = cv.toDataURL('image/jpeg', 0.85);
+    state.photo = data.split(',')[1];
+    $('photo-img').src = data;
+    $('photo').hidden = false; $('drop').hidden = true;
+  } catch (e) {
+    say('ask-msg', T.badPhoto, true);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+function dropPhoto() { state.photo = null; $('photo-img').removeAttribute('src'); $('photo').hidden = true; $('drop').hidden = false; $('file').value = ''; }
+$('file').addEventListener('change', (e) => takePhoto(e.target.files && e.target.files[0]));
+$('photo-change').addEventListener('click', () => $('file').click());
+$('photo-drop').addEventListener('click', dropPhoto);
+const drop = $('drop');
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); takePhoto(e.dataTransfer.files && e.dataTransfer.files[0]); });
+
+// ---------- own key ----------
+let keySaved = '';
+try { keySaved = localStorage.getItem(KEY_KEY) || ''; } catch (e) {}
+if (keySaved) { $('key-input').value = keySaved; $('key-keep').checked = true; }
+// A visitor who saved their own key keeps using it; everyone else starts on the site's key
+$('own-key').checked = !!keySaved || !ENDPOINT;
+$('mode-box').hidden = !ENDPOINT;
+function renderKeyMode() {
+  const own = $('own-key').checked;
+  $('key-box').hidden = !own; $('mode-hint').hidden = own;
+}
+$('own-key').addEventListener('change', () => {
+  renderKeyMode(); say('ask-msg', '');
+  if ($('own-key').checked) $('key-input').focus();
+});
+renderKeyMode();
+
+// ---------- the answer ----------
+// state.last holds what has come back so far: { steps: [{ kind, arg }], verdict, text, done, error }.
+// Everything is drawn from it, so switching language redraws the answer too.
+function stepText(s) {
+  const T = I18N[state.lang];
+  if (s.kind === 'read') return T.stepRead;
+  if (s.kind === 'text') return T.stepText;
+  if (s.kind === 'search') return T.stepSearch(s.arg);
+  return T.stepDone;
+}
+function renderSteps() {
+  const L = state.last;
+  $('steps').innerHTML = L.steps.map((s, i) => `<li class="${!L.done && i === L.steps.length - 1 ? 'now' : ''}"><span>${esc(stepText(s))}</span></li>`).join('');
+}
+
+function renderWine(w) {
+  const T = I18N[state.lang];
+  const facts = [[T.region, w.region], [T.grapes, w.grapes], [T.drink, w.drink_window]].filter(([, v]) => v);
+  return `<section class="wine">` +
+    `<p class="kicker">${esc(T.kicker)} · <b>${esc(T.conf[w.confidence] || '')}</b></p>` +
+    `<h3 class="wine-name">${esc(w.producer)}${w.name ? `<span class="cuvee">${esc(w.name)}${w.vintage ? `<span class="vint">${esc(w.vintage)}</span>` : ''}</span>` : w.vintage ? `<span class="vint">${esc(w.vintage)}</span>` : ''}</h3>` +
+    (facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : '') +
+    (w.notes ? `<p class="wine-notes">${esc(w.notes)}</p>` : '') +
+    `</section>`;
+}
+
+// 杰神's dot and every other critic's on one stretch of the 100-point scale
+function renderCritics(j, critics) {
+  const T = I18N[state.lang];
+  const num = (s) => { const m = String(s).match(/\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
+  const others = critics.map((c) => ({ who: c.critic, label: c.score, url: c.url, v: num(c.score) })).filter((c) => c.v >= 50 && c.v <= SCALE);
+  if (!others.length || !(j.score_value >= 50)) return '';
+  const all = [j.score_value, ...others.map((c) => c.v)];
+  const lo = Math.max(50, Math.min(Math.floor(Math.min(...all)) - 2, SCALE - 10)), hi = SCALE;
+  const at = (v) => ((Math.min(Math.max(v, lo), hi) - lo) / (hi - lo)) * 100;
+  // labels of dots that land on top of each other are dropped; the list below still names everyone
+  const dots = [{ who: T.jie, label: j.score, v: j.score_value, jie: true }, ...others];
+  let lastAt = -99;
+  const marks = dots.slice().sort((a, b) => a.v - b.v).map((d) => {
+    const x = at(d.v), show = d.jie || x - lastAt > 8;
+    if (show) lastAt = x;
+    return `<span class="dot${d.jie ? ' jie' + (j.source === 'predicted' ? ' hollow' : '') : ''}" style="left:${x.toFixed(1)}%">${show ? `<b>${esc(d.label)}</b>` : ''}</span>`;
+  }).join('');
+  return `<div class="critics"><h4>${esc(T.criticsH)}</h4><div class="track">${marks}</div>` +
+    `<div class="ticks"><span>${lo}</span><span>${hi}</span></div>` +
+    `<ul class="who"><li>${esc(T.jie)} <b>${esc(j.score)}</b></li>${others.map((c) =>
+      `<li>${isUrl(c.url) ? `<a href="${esc(c.url)}" rel="noopener noreferrer" target="_blank">${esc(c.who)}</a>` : esc(c.who)} <b>${esc(c.label)}</b></li>`).join('')}</ul></div>`;
+}
+
+function renderVerdict(v) {
+  const T = I18N[state.lang], w = v.wine, j = v.jieshen;
+  if (!w.identified || j.source === 'none') {
+    return `<article class="verdict none"><div class="seal"><span class="stamp">${esc(T.stamp.none)}</span><span class="score">?</span></div>` +
+      `<div class="say"><p class="why">${esc(w.notes || T.notWine)}</p><p class="byline">${esc(T.notWine)}</p></div></article>`;
+  }
+  const srcs = j.sources.filter((s) => isUrl(s.url));
+  const scale = T.scaleOf[j.scale] ? j.scale : '100';
+  // the producer without its Chinese name, for searching his articles, where he writes names in English
+  const who = w.producer.replace(/\s*[（(][^）)]*[）)]\s*/g, ' ').trim();
+  return renderWine(w) +
+    `<article class="verdict ${j.source}">` +
+    `<div class="seal"><span class="stamp">${esc(T.stamp[j.source])}</span><span class="score${scale === 'words' ? ' words' : ''}">${esc(j.score).replace(/★/g, '<i class="star">★</i>')}</span><span class="scale">${esc(T.scaleOf[scale])}</span></div>` +
+    `<div class="say">` +
+    (j.interest ? `<p class="interest"><b>${esc(T.interestH)}</b>${esc(j.interest)}</p>` : '') +
+    (j.review ? `<p class="review">${esc(j.review)}</p>` : '') +
+    `<p class="byline">${esc(j.source === 'found' ? T.byFound : T.byPredicted)}</p>` +
+    (j.reasoning ? `<p class="why-h">${esc(T.whyH)}</p><p class="why">${esc(j.reasoning)}</p>` : '') +
+    (scale === '100' ? `<p class="key">${esc(T.key)}</p>` : '') +
+    (srcs.length ? `<p class="why-h">${esc(T.srcH[j.source])}</p><ul class="srcs">${srcs.map((s) =>
+      `<li><a href="${esc(s.url)}" rel="noopener noreferrer" target="_blank">${esc(s.title || host(s.url))}</a>${s.date ? `<span class="d">${esc(s.date)}</span>` : ''}</li>`).join('')}</ul>` : '') +
+    (j.source === 'predicted' && who ? `<p class="sogou"><a href="https://weixin.sogou.com/weixin?type=2&amp;query=${encodeURIComponent('杰神 ' + who)}" rel="noopener noreferrer" target="_blank">${esc(T.sogou(who))}</a><br>${esc(T.sogouHint)}</p>` : '') +
+    `</div></article>` +
+    renderCritics(j, v.critics || []) +
+    (j.source === 'predicted' ? `<p class="fine">${esc(T.fine)}</p>` : '');
+}
+
+function renderOut() {
+  const T = I18N[state.lang], L = state.last;
+  $('step-out').hidden = false;
+  renderSteps();
+  let html = '';
+  if (L.verdict) html = renderVerdict(L.verdict);
+  else if (L.text) html = `<p class="byline">${esc(T.noVerdict)}</p><div class="prose">${L.text.split(/\n{2,}/).map((p) => `<p>${esc(p)}</p>`).join('')}</div>`;
+  $('out').innerHTML = html;
+  let meta = '';
+  if (L.usage) {
+    const u = L.usage;
+    const cost = ((u.input + u.cacheWrite * 1.25 + u.cacheRead * 0.1) * PRICE.input + u.output * PRICE.output) / 1e6 + u.searches * PRICE.search;
+    meta = T.usage(u, cost.toFixed(3));
+  }
+  setText('meta', meta);
+  if (L.stop === 'refusal') say('ask-msg', T.refusal, true);
+  else if (L.stop === 'max_tokens' && !L.verdict) say('ask-msg', T.truncated, true);
+  else if (L.stop && !L.verdict && !L.text) say('ask-msg', T.noAnswer, true);
+}
+
+// One event from runSimulator (sim.js), whether it came through the Worker or ran in this browser
+function onEvent(ev) {
+  const L = state.last;
+  if (ev.type === 'search') L.steps.push({ kind: 'search', arg: ev.query });
+  else if (ev.type === 'verdict') L.verdict = ev.verdict;
+  else if (ev.type === 'text') L.text = ev.text;
+  else if (ev.type === 'done') { L.done = true; L.stop = ev.stop; L.usage = ev.usage; L.steps.push({ kind: 'done' }); }
+  else if (ev.type === 'error') { const err = new Error(ev.message || 'error'); err.status = ev.status; throw err; }
+  renderOut();
+}
+
+// The Worker's answer: one JSON event per line
+async function askSite(input) {
+  const res = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+  if (!res.ok) { const err = new Error((await res.json().catch(() => ({}))).error || res.statusText); err.status = res.status; throw err; }
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += value;
+    let nl;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+      if (line) onEvent(JSON.parse(line));
+    }
+  }
+  if (buf.trim()) onEvent(JSON.parse(buf));
+  if (!state.last.done) throw new Error('the answer was cut off');
+}
+
+$('ask').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (state.busy) return;
+  const T = I18N[state.lang];
+  const text = $('text-input').value.trim().slice(0, 200);
+  if (!state.photo && !text) { say('ask-msg', T.needInput, true); return; }
+  const own = $('own-key').checked, key = $('key-input').value.trim();
+  if (own && !key.startsWith('sk-')) { say('ask-msg', T.needKey, true); $('key-input').focus(); return; }
+  if (own) try { if ($('key-keep').checked) localStorage.setItem(KEY_KEY, key); else localStorage.removeItem(KEY_KEY); } catch (err) {}
+
+  state.busy = true; $('go').disabled = true; setText('go', T.going);
+  say('ask-msg', '');
+  state.last = { steps: [{ kind: state.photo ? 'read' : 'text' }], verdict: null, text: '', done: false };
+  renderOut();
+  $('step-out').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const input = { lang: state.lang, text, image: state.photo || null };
+  try {
+    if (!own) await askSite(input);
+    else {
+      const [{ default: Anthropic }, sim] = await Promise.all([import(`${SDK}/+esm`), import('./sim.js')]);
+      const problem = sim.checkInput(input);
+      if (problem) throw new Error(problem);
+      // The key is the visitor's own, typed into their own browser and sent only to Anthropic
+      const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
+      await sim.runSimulator(client, input, onEvent);
+    }
+  } catch (err) {
+    const L = state.last;
+    L.done = true; renderOut();
+    if (!L.verdict && !L.text) { $('out').innerHTML = ''; $('steps').innerHTML = ''; }
+    const st = err && err.status, E = I18N[state.lang].err;
+    const why = String((err && err.message) || err), net = !st && /fetch|network|connection|load failed/i.test(why);
+    // On the site's key, a bad key, a spent credit or a missing Worker is the site's problem, not the
+    // visitor's: those all read as "unavailable" and point to the visitor's own key
+    const m = !own
+      ? st === 429 ? E.siteBusy : st >= 500 && why !== 'not_configured' ? E[529]
+        : [401, 402, 403, 404, 503].includes(st) || (st === 400 && /credit|limit|billing|web search/i.test(why)) ? E.siteDown
+        : net ? E.siteNet : E.other(why)
+      : st === 401 ? E[401] : st === 403 ? E[403] : st === 429 ? E[429] : st === 529 || st === 503 ? E[529]
+        : net ? E.net : E.other(why);
+    say('ask-msg', m, true);
+  } finally {
+    state.busy = false; $('go').disabled = false; setText('go', I18N[state.lang].go);
+  }
+});
+
+// ---------- boot ----------
+renderStatic();
+</script>
+<!-- GoatCounter: counts visits without cookies; the totals feed the visitor map on the homepage. -->
+<script data-goatcounter="https://wentaoz.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

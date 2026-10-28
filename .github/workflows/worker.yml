@@ -1,0 +1,50 @@
+# Deploys the server behind 杰神模拟器 Jieshen Simulator (wentaoz.com/jieshen/): the Cloudflare Worker in
+# worker/, which calls Claude on the site's own Anthropic API key. Needs three repository secrets:
+# CLOUDFLARE_API_TOKEN (a token made from the "Edit Cloudflare Workers" template), CLOUDFLARE_ACCOUNT_ID
+# and ANTHROPIC_API_KEY. Until all three are set it does nothing. The key is uploaded to the Worker as a
+# secret on every deploy, so to change it, update the repository secret and run this again.
+name: Worker
+
+on:
+  push:
+    branches: [main]
+    paths: ['worker/**', 'sim.js', 'reviews.js', '.github/workflows/worker.yml']
+  workflow_dispatch:        # and on demand, from the Actions tab
+
+permissions:
+  contents: read
+
+concurrency: jaysonsays
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Wait for the secrets
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == '' || env.ANTHROPIC_API_KEY == ''
+        run: echo "::notice::Add CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and ANTHROPIC_API_KEY as repository secrets to deploy the Jieshen simulator server."
+
+      - uses: actions/checkout@v4
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && env.ANTHROPIC_API_KEY != ''
+
+      - uses: actions/setup-node@v4
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && env.ANTHROPIC_API_KEY != ''
+        with:
+          node-version: 22
+
+      - name: Deploy with the key, and show the server's address in the run summary
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' && env.ANTHROPIC_API_KEY != ''
+        working-directory: worker
+        shell: bash
+        run: |
+          npm ci --no-audit --no-fund
+          secrets="$RUNNER_TEMP/jaysonsays-secrets.json"
+          trap 'rm -f "$secrets"' EXIT
+          jq -n --arg key "$ANTHROPIC_API_KEY" '{ANTHROPIC_API_KEY: $key}' > "$secrets"
+          npx wrangler deploy --secrets-file "$secrets" | tee deploy.log
+          url=$(grep -o 'https://[a-z0-9.-]*\.workers\.dev' deploy.log | head -n 1)
+          echo "::notice title=Jieshen simulator address (ENDPOINT in index.html)::$url"
