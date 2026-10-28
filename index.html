@@ -180,6 +180,7 @@ input[type="text"], input[type="password"] {
 .verdict.none .seal { background: transparent; color: var(--muted); border: 2px dashed var(--rule-strong); }
 .verdict.none .seal .score { font-family: var(--body); font-weight: 500; font-size: 44px; }
 .seal .star { font-style: normal; font-family: var(--body); font-size: 0.5em; vertical-align: 0.45em; margin-left: 0.04em; }
+.seal .score.long { font-size: 28px; line-height: 1.1; padding: 0 14px; overflow-wrap: anywhere; }
 .seal .score.words { font-family: var(--display-cjk); font-weight: 900; font-size: 24px; line-height: 1.25; padding: 4px 14px; overflow-wrap: anywhere; }
 .say { min-width: 0; }
 .review { margin: 0; font-family: var(--display-cjk); font-weight: 600; font-size: 17.5px; line-height: 1.7; }
@@ -193,6 +194,8 @@ input[type="text"], input[type="password"] {
 .srcs li { overflow-wrap: anywhere; }
 .srcs li + li { margin-top: 3px; }
 .srcs .d { color: var(--muted); font-family: var(--mono); font-size: 12.5px; margin-left: 6px; }
+.history { margin: 0 0 12px; font-size: 14px; }
+.history b { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
 .interest { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; background: var(--gold-soft); font-size: 13.5px; }
 .interest b { font-weight: 600; margin-right: 8px; }
 .key { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
@@ -353,13 +356,14 @@ const I18N = {
     siteHint: '默认免费，用的是本站的额度。人多或本站额度用完时，可以改用你自己的 key。',
     keyLabel: '你的 Anthropic API key',
     keyKeep: '在这台设备上记住',
-    keyHint: '没有 key？在 console.anthropic.com 注册并充值后创建一个。key 只存在你的浏览器里，直接发给 Anthropic，不经过本站。每问一瓶大约花 0.05–0.35 美元，要上网查评家分数的贵一些。',
+    keyHint: '没有 key？在 console.anthropic.com 注册并充值后创建一个。key 只存在你的浏览器里，直接发给 Anthropic，不经过本站。每问一瓶大约花 0.05–0.15 美元，要上网查评家分数的贵一些。',
     go: '问杰神', going: '正在问…',
     needInput: '先拍一张酒标，或者输入酒名。',
     needKey: '请先填你的 API key（以 sk-ant- 开头）。',
     badPhoto: '读不了这张照片。换一张 JPEG 或 PNG 再试；iPhone 的 HEIC 照片请在 Safari 里选，或先导出为 JPEG。',
     hOut: '杰神怎么说',
     stepRead: '读酒标', stepText: '认酒',
+    stepLookup: (p) => `翻他的榜单：${p}`,
     stepSearch: (q) => `搜索「${q}」`,
     stepDone: '完成',
     conf: { high: '把握大', medium: '把握一般', low: '把握不大' },
@@ -369,6 +373,7 @@ const I18N = {
     scaleOf: { 100: '满分 100', stars: '满分 6★', words: '文字评价' },
     key: '怎么看杰神的分：93 及格，95 以上是真喜欢，98 以上惊艳，100 封神。同一款酒，他平均比 Parker 一系的评家低 4 分左右。',
     interestH: '利益相关',
+    historyH: '他评过不止一次',
     sogou: (p) => `在搜狗微信里搜「杰神 ${p}」`,
     sogouHint: '评分表收到他 2025 年的榜单为止，之后的评价可能在这里。',
     byFound: '分数照他发表的原样；短评是转述，原文见出处。',
@@ -399,9 +404,9 @@ const I18N = {
     method:
       '<p><span class="k">杰神是谁</span><br>杰神是微信公众号「杰神自号」的作者，在南京做美国精品酒进口，也在纳帕有自己的酒庄。他每年把喝过的高端酒整理成「杰神葡萄酒榜单」，每款打分：2016 年用文字，2017–2018 年用 1–6 星，2019 年起用百分制。他说话直，打分比 Parker、Jeb Dunnuck 一系的评家平均低 4 分左右，93 分以下在他那里就算难喝。</p>' +
       '<p><span class="k">怎么认酒</span><br>照片和你输入的文字一起交给 Anthropic 的 Claude 模型，它读出酒庄、酒款、年份和产区，按这款酒的名声和年份估一个适饮期。看不清的地方，它会说明自己猜了什么。</p>' +
-      '<p><span class="k">怎么查杰神的分数</span><br>他的分数都在微信文章的图片表格里，搜索引擎搜不到。所以这里用的是一张从他的榜单里整理出来的评分表：2016 到 2023 年的六份榜单逐张读图录入，每份的酒款数、满分酒数都和文中写的对得上（只有 2017 年原文自己就缺了 17 款）。2025 年的榜单不再打分，只给每款酒标一种颜色，颜色的意思是按他文中点名的酒推断的：红是超一流，蓝是顶级，黑是正常，橙是老了或名不副实，绿是糟糕，灰是最恶心。再加上他文章里点评过的酒，一共一千三百多条。酒庄、酒款、年份都对上才算他评过，并附上出处。</p>' +
+      '<p><span class="k">怎么查杰神的分数</span><br>他的分数都在微信文章的图片表格里，搜索引擎搜不到。所以这里用的是一张从他的榜单里整理出来的评分表：2016 到 2023 年的六份榜单逐张读图录入，每份的酒款数、满分酒数都和文中写的对得上（只有 2017 年原文自己就缺了 17 款）。2025 年的榜单不再打分，只给每款酒标一种颜色，颜色的意思是按他文中点名的酒推断的：红是超一流，蓝是顶级，黑是正常，橙是老了或名不副实，绿是糟糕，灰是最恶心。再加上他文章里点评过的酒，一共一千三百多条。Claude 按酒庄翻这张表，拿到这个酒庄的全部记录，酒庄、酒款、年份都对上才算他评过，并附上出处；同一酒庄的其他记录也是预测时最好的参照。</p>' +
       '<p><span class="k">怎么预测</span><br>表里没有时，Claude 按他的打分习惯推一个百分制分数：先按产区定起点，再参照他给同一款酒其他年份、同一酒庄打过的分，还会上网查 Wine Advocate、Jeb Dunnuck 等评家给这款酒的分数作锚（最多搜 3 次），然后模仿他的口吻写一段短评。这一部分是模拟，页面上用虚线的印章标出来。</p>' +
-      '<p><span class="k">照片和费用</span><br>默认请求经本站的服务器转给 Anthropic，由本站付费，服务器不保存照片和回答。用你自己的 API key 时，请求从你的浏览器直接发给 Anthropic，费用记在你的账上。每问一瓶大约 0.05–0.35 美元。</p>' +
+      '<p><span class="k">照片和费用</span><br>默认请求经本站的服务器转给 Anthropic，由本站付费，服务器不保存照片和回答。用你自己的 API key 时，请求从你的浏览器直接发给 Anthropic，费用记在你的账上。每问一瓶大约 0.05–0.15 美元。</p>' +
       '<p><span class="k">声明</span><br>本页与杰神本人无关。他的分数和文章归他所有，这里只给分数、转述和出处链接。他代理或自己酿的酒，页面会注明。</p>',
     footSig: '杰神模拟器', footNote: '开瓶之前，先问问杰神。',
   },
@@ -422,13 +427,14 @@ const I18N = {
     siteHint: 'Free by default, on the site’s credit. If the site is busy or its credit runs out, you can use your own key.',
     keyLabel: 'Your Anthropic API key',
     keyKeep: 'Remember on this device',
-    keyHint: 'No key? Sign up at console.anthropic.com, add credit and create one. The key stays in your browser and goes straight to Anthropic, never through this site. Each bottle costs about US$0.05–0.35, more when it has to look up other critics’ scores.',
+    keyHint: 'No key? Sign up at console.anthropic.com, add credit and create one. The key stays in your browser and goes straight to Anthropic, never through this site. Each bottle costs about US$0.05–0.15, more when it has to look up other critics’ scores.',
     go: 'Ask 杰神', going: 'Asking…',
     needInput: 'Photograph a label or type a wine first.',
     needKey: 'Enter your API key first (it starts with sk-ant-).',
     badPhoto: 'This photo can’t be read. Try a JPEG or PNG; for an iPhone HEIC photo, pick it in Safari or export it as JPEG first.',
     hOut: 'What 杰神 says',
     stepRead: 'Reading the label', stepText: 'Working out the wine',
+    stepLookup: (p) => `Looking up ${p} in his lists`,
     stepSearch: (q) => `Searching “${q}”`,
     stepDone: 'Done',
     conf: { high: 'sure', medium: 'fairly sure', low: 'not sure' },
@@ -438,6 +444,7 @@ const I18N = {
     scaleOf: { 100: 'out of 100', stars: 'out of 6★', words: 'in words' },
     key: 'Reading his scores: 93 is a pass, 95 and up means he really likes it, 98 and up is stunning, 100 is legendary. On the same wine he averages about 4 points below the Parker school of critics.',
     interestH: 'Interest',
+    historyH: 'He has judged it more than once',
     sogou: (p) => `Search Sogou’s WeChat search for “杰神 ${p}”`,
     sogouHint: 'The table runs to his 2025 list; anything newer may be here.',
     byFound: 'The score is as he published it; the note is retold, so read the original at the source.',
@@ -468,9 +475,9 @@ const I18N = {
     method:
       '<p><span class="k">Who 杰神 is</span><br>杰神 (Jieshen) writes the Chinese WeChat account 杰神自号. He imports American wine in Nanjing and has his own winery in Napa. Every year he publishes 杰神葡萄酒榜单, a list of the fine wines he drank with a score for each: in words in 2016, 1 to 6 stars in 2017–2018, out of 100 since 2019. He is blunt, scores about 4 points below the Parker school on average, and calls anything under 93 hard to drink.</p>' +
       '<p><span class="k">Identifying the wine</span><br>The photo and whatever you typed go to Anthropic’s Claude, which reads the producer, cuvée, vintage and region and estimates a drinking window from the wine’s reputation and the vintage. Where something is unreadable, it says what it assumed.</p>' +
-      '<p><span class="k">Finding his score</span><br>His scores are image tables inside WeChat articles, which search engines can’t see. So the page uses a table collected from his lists: every list from 2016 to 2025, read image by image, each matching the number of wines and of 100-point wines its article states (but for 17 wines of 2017 that the article itself lacks). The 2025 list has no scores, only a colour per wine, and the colours’ meanings are inferred from what he writes about the wines he names: red is outstanding, blue top-class, black ordinary, orange old or not worth its name, green poor, grey the most disgusting. With the wines his other articles judge, that is over 1,300 rows. It counts as his only when producer, wine and vintage all match, and it comes with the source.</p>' +
+      '<p><span class="k">Finding his score</span><br>His scores are image tables inside WeChat articles, which search engines can’t see. So the page uses a table collected from his lists: every list from 2016 to 2025, read image by image, each matching the number of wines and of 100-point wines its article states (but for 17 wines of 2017 that the article itself lacks). The 2025 list has no scores, only a colour per wine, and the colours’ meanings are inferred from what he writes about the wines he names: red is outstanding, blue top-class, black ordinary, orange old or not worth its name, green poor, grey the most disgusting. With the wines his other articles judge, that is over 1,300 rows. Claude looks the producer up in it and gets back all of that producer’s rows; it counts as his verdict only when producer, wine and vintage all match, and it comes with the source. The producer’s other rows are also the best evidence for a prediction.</p>' +
       '<p><span class="k">Predicting</span><br>When the wine isn’t in the table, Claude predicts a score out of 100 the way he scores: a starting point for the region, then what he gave other vintages of the same wine and the same producer, anchored on other critics’ scores for the wine, such as Wine Advocate and Jeb Dunnuck, which it looks up on the web (at most 3 searches). Then it writes a short note in his voice. That part is a simulation, and the page marks it with a dashed seal.</p>' +
-      '<p><span class="k">Photos and cost</span><br>By default the request goes through this site’s server to Anthropic and the site pays; the server keeps neither the photo nor the answer. With your own API key, the request goes from your browser straight to Anthropic and is billed to you. Each bottle costs about US$0.05–0.35.</p>' +
+      '<p><span class="k">Photos and cost</span><br>By default the request goes through this site’s server to Anthropic and the site pays; the server keeps neither the photo nor the answer. With your own API key, the request goes from your browser straight to Anthropic and is billed to you. Each bottle costs about US$0.05–0.15.</p>' +
       '<p><span class="k">Disclaimer</span><br>This page has nothing to do with 杰神 himself. His scores and articles are his; this page shows only the scores, retold notes and links to the sources. Where he sells or makes the wine, the page says so.</p>',
     footSig: 'Jieshen Simulator', footNote: 'Ask 杰神 before you pull the cork.',
   },
@@ -588,6 +595,7 @@ function stepText(s) {
   const T = I18N[state.lang];
   if (s.kind === 'read') return T.stepRead;
   if (s.kind === 'text') return T.stepText;
+  if (s.kind === 'lookup') return T.stepLookup(s.arg);
   if (s.kind === 'search') return T.stepSearch(s.arg);
   return T.stepDone;
 }
@@ -642,8 +650,9 @@ function renderVerdict(v) {
   const who = w.producer.replace(/\s*[（(][^）)]*[）)]\s*/g, ' ').trim();
   return renderWine(w) +
     `<article class="verdict ${j.source}">` +
-    `<div class="seal"><span class="stamp">${esc(T.stamp[j.source])}</span><span class="score${scale === 'words' ? ' words' : ''}">${esc(j.score).replace(/★/g, '<i class="star">★</i>')}</span><span class="scale">${esc(T.scaleOf[scale])}</span></div>` +
+    `<div class="seal"><span class="stamp">${esc(T.stamp[j.source])}</span><span class="score${scale === 'words' ? ' words' : [...j.score].length > 3 ? ' long' : ''}">${esc(j.score).replace(/★/g, '<i class="star">★</i>')}</span><span class="scale">${esc(T.scaleOf[scale])}</span></div>` +
     `<div class="say">` +
+    (j.history ? `<p class="history"><b>${esc(T.historyH)}</b>${esc(j.history)}</p>` : '') +
     (j.interest ? `<p class="interest"><b>${esc(T.interestH)}</b>${esc(j.interest)}</p>` : '') +
     (j.review ? `<p class="review">${esc(j.review)}</p>` : '') +
     `<p class="byline">${esc(j.source === 'found' ? T.byFound : T.byPredicted)}</p>` +
@@ -680,7 +689,8 @@ function renderOut() {
 // One event from runSimulator (sim.js), whether it came through the Worker or ran in this browser
 function onEvent(ev) {
   const L = state.last;
-  if (ev.type === 'search') L.steps.push({ kind: 'search', arg: ev.query });
+  if (ev.type === 'lookup') L.steps.push({ kind: 'lookup', arg: ev.producer });
+  else if (ev.type === 'search') L.steps.push({ kind: 'search', arg: ev.query });
   else if (ev.type === 'verdict') L.verdict = ev.verdict;
   else if (ev.type === 'text') L.text = ev.text;
   else if (ev.type === 'done') { L.done = true; L.stop = ev.stop; L.usage = ev.usage; L.steps.push({ kind: 'done' }); }

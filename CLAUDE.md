@@ -7,7 +7,8 @@ piece does and where the data comes from.
 ## Conventions
 
 - `sim.js` is imported by both the page and the Worker, so the prompt and the request shape live in
-  one place. Keep it free of DOM APIs and Node APIs.
+  one place. Keep it free of DOM APIs and Node APIs. The rows in `reviews.js` reach Claude only through
+  the `lookup_scores` tool (`lookupScores`), never in the prompt, which stays small and cached.
 - All URLs are relative: the page lives under `/jaysonsays/`, not at the root. `../` is the homepage,
   wentaoz.com, served from the VictorZG33.github.io repository, which links here from its Wine tab.
 - Interface text goes through the `I18N` table in `index.html`; add every key in both `zh` and `en`.

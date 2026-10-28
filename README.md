@@ -17,15 +17,15 @@ It works in Chinese and English, in light and dark, on a phone.
 
 ## How it works
 
-The page sends the photo (scaled to at most 1568 px) and the text to Claude Opus 5.5 in one request. The system prompt holds his framework and the whole table (about 36,000 tokens); it is the same for every visitor, so it is cached. Claude answers through one tool, `give_verdict`, with a strict schema, so the page always gets the same fields back. Web search (at most 3 searches) only finds other critics' scores for a prediction: his own scores sit in image tables inside WeChat articles, which search engines don't index, so the table is the only place to look them up.
+The page sends the photo (scaled to at most 1568 px) and the text to Claude Opus 5.5. The system prompt holds his framework (about 8,000 tokens), the same for every visitor, so it is cached. The table isn't in the prompt: Claude calls the `lookup_scores` tool with the producer's name, and `sim.js` answers with every row of that producer, all its wines and vintages, so Claude decides what matches and has the producer's other verdicts to predict from. The lookup compares names as words, without accents, case or words like *Domaine* and *Château*, so "DRC", "Domaine de la Romanée-Conti" and "Romanee-Conti" all find the same rows. Claude answers through one tool, `give_verdict`, with a strict schema, so the page always gets the same fields back. Web search (at most 3 searches) only finds other critics' scores for a prediction: his own scores sit in image tables inside WeChat articles, which search engines don't index, so the table is the only place to look them up.
 
 By default the request goes through the Cloudflare Worker in `worker/`, which keeps the site's Anthropic API key secret, checks the input, allows 3 questions a minute per IP address and only accepts requests from wentaoz.com. A visitor can tick *Use my own Anthropic API key*; the page then runs the same code in the browser with their key (kept in `localStorage` under `jaysonsays.apiKey` only if they tick *Remember*).
 
 ## Files
 
 - `index.html`: the page. `ENDPOINT` near the top of its script is the Worker's address; `PRICE` is what it charges per token and per search, for the cost line under each answer.
-- `sim.js`: the engine, shared by the page and the Worker. `checkInput` checks a question, `buildRequest` shapes the Claude request (prompt, tools, the `give_verdict` schema) and `runSimulator` runs it, continues a turn the API paused, and reports each search, the verdict and the token counts as events.
-- `reviews.js`: what it knows about 杰神. `FRAMEWORK` is his framework in Chinese: his scales, how he relates to other critics, what he rewards and punishes, his interests, his rules for a score, his voice. `SOURCES` are the articles, `REVIEWS` the rows, one wine each: producer, wine, vintage, his score, the critics' scores printed next to it, the source, and the gist of his note.
+- `sim.js`: the engine, shared by the page and the Worker. `checkInput` checks a question, `buildRequest` shapes the Claude request (prompt, tools, the `give_verdict` schema), `lookupScores` answers Claude's table lookups, and `runSimulator` runs the conversation: it answers lookups (at most 4), continues a turn the API paused, and reports each lookup, search, the verdict and the token counts as events.
+- `reviews.js`: what it knows about 杰神. `FRAMEWORK` is his framework in Chinese, which goes into the prompt: his scales, how he relates to other critics, what he rewards and punishes, his interests, his rules for a score, his voice. `SOURCES` are the articles, `REVIEWS` the rows that lookups read, one wine each: producer, wine, vintage, his score, the critics' scores printed next to it, the source, and the gist of his note.
 - `worker/`: the Cloudflare Worker (`worker.js`, `wrangler.toml`).
 - `.github/workflows/worker.yml`: deploys the Worker.
 - `tools/`: the tests.
@@ -93,7 +93,7 @@ To try the Worker itself, put `ANTHROPIC_API_KEY=...` in `worker/.dev.vars` (git
 
 ## Cost
 
-Each question is one Claude Opus 5.5 request, sometimes continued once. The cached prompt costs about US$0.18 to write for the first question in five minutes and about US$0.015 to read for later ones. A wine he has scored needs no searching and costs about US$0.05–0.25; a prediction may search for other critics' scores, at US$0.01 a search plus the results as input tokens, about US$0.10–0.35. `SIM_MODEL` in `sim.js` picks the model; Claude Sonnet 5.5 costs about half as much (change `PRICE` in `index.html` to match).
+Each question is a short Claude Opus 5.5 conversation: usually one turn to look the producer up and one to answer. The cached prompt (about 8,000 tokens) costs about US$0.04 to write for the first question in five minutes and well under a cent to read for later ones; a lookup's rows add a few thousand input tokens. A wine he has scored costs about US$0.05–0.10; a prediction may also search for other critics' scores, at US$0.01 a search plus the results as input tokens, about US$0.08–0.15. (With the whole table in the prompt, as at first, the prompt was 76,505 tokens and a question cost about US$0.40.) `SIM_MODEL` in `sim.js` picks the model; Claude Sonnet 5.5 costs about half as much (change `PRICE` in `index.html` to match).
 
 ## Disclaimer
 

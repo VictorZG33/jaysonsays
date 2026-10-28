@@ -1,5 +1,5 @@
 // Drives the page in Chromium with the Worker mocked: every kind of verdict (his score in points, stars
-// and words, a prediction, not a wine), the error paths and a photo upload, in both languages and
+// and words, several verdicts on one wine, a prediction, not a wine), the error paths and a photo upload, in both languages and
 // themes. Prints what each run sent and showed, and saves full-page screenshots to tools/shots/.
 //   python3 -m http.server 8765 --bind 127.0.0.1    (in the repository root)
 //   node tools/test-page.cjs
@@ -11,13 +11,17 @@ const proxy = process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY, bypas
 
 const predicted = {
   wine: { identified: true, producer: 'Fait-Main (费特曼)', name: 'Beckstoffer Las Piedras Vineyard Cabernet Sauvignon', vintage: '2019', region: 'St. Helena, Napa Valley, California, USA', grapes: 'Cabernet Sauvignon', drink_window: '2027–2045', confidence: 'high', notes: '酒标上能清楚读到酒庄、园名和年份。' },
-  jieshen: { source: 'predicted', score: '96', scale: '100', score_value: 96, review: '甘草和黑醋栗打头，干净，层层往外翻，骨架撑得住浓度。纳帕这个价位里少见的不油腻，中段扎实，再放五年会更愉悦。', reasoning: '纳帕顶级赤霞珠起点 94；JD 98 减 4 再取平均得 94；Las Piedras 园他在 2013 酒会上评价很高（干净、骨架平衡），风格对他胃口，加 2 分。', interest: '', sources: [{ title: '杰神酒会后记 | 2013年份纳帕盛宴，满分酒精彩各异', url: 'https://www.sohu.com/a/253269736_764488', date: '2018-09-11' }] },
+  jieshen: { source: 'predicted', score: '96', scale: '100', score_value: 96, history: '', review: '甘草和黑醋栗打头，干净，层层往外翻，骨架撑得住浓度。纳帕这个价位里少见的不油腻，中段扎实，再放五年会更愉悦。', reasoning: '纳帕顶级赤霞珠起点 94；JD 98 减 4 再取平均得 94；Las Piedras 园他在 2013 酒会上评价很高（干净、骨架平衡），风格对他胃口，加 2 分。', interest: '', sources: [{ title: '杰神酒会后记 | 2013年份纳帕盛宴，满分酒精彩各异', url: 'https://www.sohu.com/a/253269736_764488', date: '2018-09-11' }] },
   critics: [{ critic: 'Jeb Dunnuck', score: '98', url: 'https://jebdunnuck.com/x' }, { critic: 'Wine Advocate', score: '97+', url: '' }, { critic: 'Vinous', score: '96', url: '' }],
 };
 const found = JSON.parse(JSON.stringify(predicted));
 found.wine.producer = 'Realm Cellars'; found.wine.name = 'The Absurd'; found.wine.vintage = '2015';
 Object.assign(found.jieshen, { source: 'found', score: '100', scale: '100', score_value: 100, review: '榜单里只有分数，没有单独评语。100 在他那里是封神，一年只有几款。', reasoning: '杰神葡萄酒榜单·2019 给了 100，同榜 2016 年份也是 100。', interest: '据他 2017–2019 年的文章，他的公司杰森洋行卖过 Realm 的酒。', sources: [{ title: '杰神葡萄酒榜单·2019', url: 'https://www.sohu.com/a/369445347_764488', date: '2020-01-29' }] });
 found.critics = [{ critic: 'Wine Advocate', score: '100', url: '' }, { critic: 'Jeb Dunnuck', score: '100', url: '' }];
+const multi = JSON.parse(JSON.stringify(found));
+Object.assign(multi.jieshen, { score: '93', score_value: 93, history: '6★（2018 榜单）· 100（2019）· 93（2021）' });
+const worst = JSON.parse(JSON.stringify(found));
+Object.assign(worst.jieshen, { score: '6★ / 100 / 93', score_value: 93 });
 const stars = JSON.parse(JSON.stringify(found));
 Object.assign(stars.wine, { producer: 'Petrus', name: 'Pomerol', vintage: '1983', region: 'Pomerol, Bordeaux, France', grapes: 'Merlot' });
 Object.assign(stars.jieshen, { score: '1★', scale: 'stars', score_value: 80, review: '黑榜上的一瓶：有一股下水道似的臭味，非常糟。', reasoning: '杰神葡萄酒榜单·2018 给了 1 星，是全榜最低。', interest: '', sources: [{ title: '杰神葡萄酒榜单·2018', url: 'https://www.sohu.com/a/291017193_764488', date: '2019-01-23' }] });
@@ -28,6 +32,7 @@ Object.assign(words.jieshen, { score: '超级好喝', scale: 'words', score_valu
 words.critics = [];
 const notWine = { wine: { identified: false, producer: '', name: '', vintage: '', region: '', grapes: '', drink_window: '', confidence: 'low', notes: '照片里是一只猫，不是酒标。' }, jieshen: { source: 'none', score: '', score_value: 0, review: '', reasoning: '', sources: [] }, critics: [] };
 const nd = (v) => [
+  { type: 'lookup', producer: 'Fait-Main' },
   { type: 'search', query: '杰神 Fait-Main 2019' },
   { type: 'search', query: '杰神自号 Las Piedras' },
   { type: 'search', query: 'Fait-Main Las Piedras 2019 Wine Advocate Jeb Dunnuck score' },
@@ -64,7 +69,7 @@ const nd = (v) => [
       await page.waitForTimeout(300);
     }
     await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
-    const info = await page.evaluate(() => ({ msg: document.querySelector('#ask-msg').textContent, steps: [...document.querySelectorAll('#steps li')].map((l) => l.textContent), meta: document.querySelector('#meta').textContent, overflow: document.documentElement.scrollWidth > window.innerWidth }));
+    const info = await page.evaluate(() => ({ fits: [...document.querySelectorAll('.seal .score')].every((e) => e.scrollWidth <= e.parentElement.clientWidth && e.getBoundingClientRect().bottom <= e.parentElement.getBoundingClientRect().bottom), msg: document.querySelector('#ask-msg').textContent, steps: [...document.querySelectorAll('#steps li')].map((l) => l.textContent), meta: document.querySelector('#meta').textContent, overflow: document.documentElement.scrollWidth > window.innerWidth }));
     if (sent && sent.image) sent.image = `<${sent.image.length} chars>`;
     console.log(name, JSON.stringify({ sent, ...info }));
     await ctx.close();
@@ -73,6 +78,8 @@ const nd = (v) => [
   await run('02-start-desktop-en', { width: 1200, height: 900, lang: 'en' });
   await run('03-predicted', { reply: nd(predicted) });
   await run('04-found-dark', { reply: nd(found), dark: true });
+  await run('04a-found-several', { reply: nd(multi) });
+  await run('04z-long-score', { reply: nd(worst) });
   await run('04b-found-stars', { reply: nd(stars) });
   await run('04c-found-words-en', { reply: nd(words), lang: 'en' });
   await run('05-notwine', { reply: nd(notWine) });

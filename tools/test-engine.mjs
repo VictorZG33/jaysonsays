@@ -1,40 +1,56 @@
-// Runs sim.js against the real Anthropic SDK with the API mocked: checks the input checks, the request
-// it sends, the pause_turn continuation and the events it emits. No key needed.
+// Runs sim.js against the real Anthropic SDK with the API mocked: checks the input checks, the table
+// lookup, the request it sends, the lookup round trip, the pause_turn continuation and the events it
+// emits. No key needed.
 //   cd worker && npm ci && cd .. && node tools/test-engine.mjs
 import Anthropic from '../worker/node_modules/@anthropic-ai/sdk/index.mjs';
-import { runSimulator, checkInput } from '../sim.js';
+import { runSimulator, checkInput, lookupScores } from '../sim.js';
 import assert from 'node:assert/strict';
+
+// The lookup finds producers however they are spelled, and only them
+const producers = (q, wine = '') => [...new Set(lookupScores({ producer: q, wine }).split('\n\nSources:')[0].split('\n').slice(1).map((l) => l.split(' | ')[0]))];
+assert.deepEqual(producers('Realm Cellars', 'The Absurd'), ['Realm Cellars']);
+assert.deepEqual(producers('DRC', 'La Tache'), ['Domaine de la Romanee-Conti']);
+assert.deepEqual(producers('Domaine de la Romanée-Conti'), ['Domaine de la Romanee-Conti']);
+assert.deepEqual(producers('Lafite'), ['Chateau Lafite Rothschild']);
+assert.deepEqual(producers('Le Pin'), ['Le Pin']);
+assert.deepEqual(producers('木杺红'), ['木杺 (Mu Xin)']);
+assert.deepEqual(producers('Penfolds Grange'), ['Penfolds']);
+assert.deepEqual(producers('de Vogüé', 'Musigny'), ['Domaine Comte Georges de Vogue']);
+assert.match(lookupScores({ producer: 'Two Buck Chuck', wine: '' }), /^No rows/);
+assert.match(lookupScores({ producer: 'Realm', wine: 'The Absurd' }), /Realm Cellars \| Absurd \| 2015 \| 100 \| RP100 JD100 \| L19/);
+assert.match(lookupScores({ producer: 'Realm', wine: 'The Absurd' }), /L19: 杰神葡萄酒榜单·2019, 2020-01-29, https:\/\/www\.sohu\.com\/a\/369445347_764488/);
 
 const sse = (events) => events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join('');
 const msgStart = (id) => ({ type: 'message_start', message: { id, type: 'message', role: 'assistant', model: 'claude-opus-5-5', content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1000, output_tokens: 1, cache_read_input_tokens: 500, cache_creation_input_tokens: 0 } } });
-const turn1 = [
-  msgStart('msg_1'),
-  { type: 'content_block_start', index: 0, content_block: { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: {} } },
-  { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"query":"杰神 Fait-Main 2019"}' } },
-  { type: 'content_block_stop', index: 0 },
-  { type: 'content_block_start', index: 1, content_block: { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [{ type: 'web_search_result', url: 'https://www.sohu.com/a/1_764488', title: 't', encrypted_content: 'x', page_age: null }] } },
-  { type: 'content_block_stop', index: 1 },
-  { type: 'message_delta', delta: { stop_reason: 'pause_turn', stop_sequence: null }, usage: { output_tokens: 50, server_tool_use: { web_search_requests: 1, web_fetch_requests: 0 } } },
+const block = (index, content_block, json) => [
+  { type: 'content_block_start', index, content_block },
+  ...(json ? [{ type: 'content_block_delta', index, delta: { type: 'input_json_delta', partial_json: JSON.stringify(json) } }] : []),
+  { type: 'content_block_stop', index },
+];
+const end = (stop, out, searches) => [
+  { type: 'message_delta', delta: { stop_reason: stop, stop_sequence: null }, usage: { output_tokens: out, server_tool_use: { web_search_requests: searches, web_fetch_requests: 0 } } },
   { type: 'message_stop' },
 ];
-const verdict = { wine: { identified: true, producer: 'Fait-Main', name: 'Las Piedras', vintage: '2019', region: 'St. Helena', grapes: 'Cabernet Sauvignon', drink_window: '2027–2045', confidence: 'high', notes: 'n' }, jieshen: { source: 'predicted', score: '96', scale: '100', score_value: 96, review: 'r', reasoning: 'w', interest: '', sources: [] }, critics: [{ critic: 'Jeb Dunnuck', score: '98', url: '' }] };
+// 1: Claude asks for the producer's rows; 2: it searches and the API pauses the turn; 3: the verdict
+const turn1 = [msgStart('msg_1'), ...block(0, { type: 'tool_use', id: 'toolu_1', name: 'lookup_scores', input: {} }, { producer: 'Fait-Main', wine: 'Las Piedras' }), ...end('tool_use', 40, 0)];
 const turn2 = [
   msgStart('msg_2'),
-  { type: 'content_block_start', index: 0, content_block: { type: 'server_tool_use', id: 'srvtoolu_2', name: 'web_search', input: {} } },
-  { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"query":"Fait-Main Las Piedras 2019 Jeb Dunnuck"}' } },
-  { type: 'content_block_stop', index: 0 },
-  { type: 'content_block_start', index: 1, content_block: { type: 'tool_use', id: 'toolu_1', name: 'give_verdict', input: {} } },
-  { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: JSON.stringify(verdict) } },
-  { type: 'content_block_stop', index: 1 },
-  { type: 'message_delta', delta: { stop_reason: 'tool_use', stop_sequence: null }, usage: { output_tokens: 300, server_tool_use: { web_search_requests: 1, web_fetch_requests: 0 } } },
-  { type: 'message_stop' },
+  ...block(0, { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: {} }, { query: 'Fait-Main Las Piedras 2019 Wine Advocate' }),
+  ...block(1, { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [{ type: 'web_search_result', url: 'https://example.com', title: 't', encrypted_content: 'x', page_age: null }] }),
+  ...end('pause_turn', 50, 1),
 ];
+const verdict = { wine: { identified: true, producer: 'Fait-Main', name: 'Las Piedras', vintage: '2019', region: 'St. Helena', grapes: 'Cabernet Sauvignon', drink_window: '2027–2045', confidence: 'high', notes: 'n' }, jieshen: { source: 'predicted', score: '96', scale: '100', score_value: 96, history: '', review: 'r', reasoning: 'w', interest: '', sources: [] }, critics: [{ critic: 'Jeb Dunnuck', score: '98', url: '' }] };
+const turn3 = [
+  msgStart('msg_3'),
+  ...block(0, { type: 'server_tool_use', id: 'srvtoolu_2', name: 'web_search', input: {} }, { query: 'Fait-Main Las Piedras 2019 Jeb Dunnuck' }),
+  ...block(1, { type: 'tool_use', id: 'toolu_2', name: 'give_verdict', input: {} }, verdict),
+  ...end('tool_use', 300, 1),
+];
+const turns = [turn1, turn2, turn3];
 const bodies = [], headers = [];
-let n = 0;
 const fetchMock = async (url, init) => {
   bodies.push(JSON.parse(init.body)); headers.push(new Headers(init.headers));
-  const ev = n++ === 0 ? turn1 : turn2;
-  return new Response(sse(ev), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  return new Response(sse(turns[bodies.length - 1]), { status: 200, headers: { 'content-type': 'text/event-stream' } });
 };
 const client = new Anthropic({ apiKey: 'sk-test', fetch: fetchMock });
 const events = [];
@@ -45,18 +61,27 @@ assert.equal(checkInput({ lang: 'fr', text: 'x' }), 'bad lang');
 assert.equal(checkInput({ lang: 'zh', image: 'not base64!' }), 'bad image');
 assert.equal(checkInput({ lang: 'zh', text: 'x'.repeat(201) }), 'text too long');
 await runSimulator(client, input, (e) => events.push(e));
-assert.equal(bodies.length, 2);
+
+assert.equal(bodies.length, 3);
 const b = bodies[0];
 assert.equal(b.model, 'claude-opus-5-5');
 assert.equal(b.stream, true);
-assert.deepEqual(b.tools.map((t) => t.name), ['web_search', 'give_verdict']);
+assert.deepEqual(b.tools.map((t) => t.name), ['web_search', 'lookup_scores', 'give_verdict']);
 assert.equal(b.system[0].cache_control.type, 'ephemeral');
+assert.ok(b.system[0].text.length < 15000, 'the table stays out of the prompt');
 assert.equal(b.fallbacks, 'default');
 assert.ok(!('betas' in b), 'betas go in the header');
 assert.equal(headers[0].get('anthropic-beta'), 'server-side-fallback-2026-07-01');
-assert.equal(bodies[1].messages.length, 2);
-assert.equal(bodies[1].messages[1].role, 'assistant');
-assert.deepEqual(bodies[1].messages[1].content.map((c) => c.type), ['server_tool_use', 'web_search_tool_result']);
-assert.deepEqual(events.map((e) => e.type), ['search', 'search', 'verdict', 'done']);
-assert.deepEqual(events[3].usage, { input: 2000, output: 350, cacheRead: 1000, cacheWrite: 0, searches: 2 });
+// the lookup's answer goes back as a tool result, after Claude's turn
+const [, asked, answered] = bodies[1].messages;
+assert.equal(asked.role, 'assistant');
+assert.equal(answered.content[0].type, 'tool_result');
+assert.equal(answered.content[0].tool_use_id, 'toolu_1');
+assert.match(answered.content[0].content, /Fait-Main \| Beckstoffer Las Piedras Vineyard Cabernet Sauvignon \| 2018 \| 97/);
+// the paused turn goes back as it came, with no extra user message
+assert.equal(bodies[2].messages.length, 4);
+assert.deepEqual(bodies[2].messages[3].content.map((c) => c.type), ['server_tool_use', 'web_search_tool_result']);
+assert.deepEqual(events.map((e) => e.type), ['lookup', 'search', 'search', 'verdict', 'done']);
+assert.equal(events[0].producer, 'Fait-Main');
+assert.deepEqual(events[4].usage, { input: 3000, output: 390, cacheRead: 1500, cacheWrite: 0, searches: 2 });
 console.log(`OK (system prompt ${b.system[0].text.length} characters)`);
