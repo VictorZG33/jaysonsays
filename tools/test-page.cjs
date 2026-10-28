@@ -10,7 +10,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const proxy = process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } : undefined;
 
 const predicted = {
-  wine: { identified: true, producer: 'Fait-Main (费特曼)', name: 'Beckstoffer Las Piedras Vineyard Cabernet Sauvignon', vintage: '2019', region: 'St. Helena, Napa Valley, California, USA', grapes: 'Cabernet Sauvignon', drink_window: '2027–2045', confidence: 'high', notes: '酒标上能清楚读到酒庄、园名和年份。' },
+  wine: { identified: true, producer: 'Fait-Main (费特曼)', name: 'Beckstoffer Las Piedras Vineyard Cabernet Sauvignon', vintage: '2019', region: 'St. Helena, Napa Valley, California, USA', grapes: 'Cabernet Sauvignon', drink_window: '2027–2045', winemaker: 'Benoit Touquette', confidence: 'high', notes: '酒标上能清楚读到酒庄、园名和年份。' },
   jieshen: { source: 'predicted', score: '96', scale: '100', score_value: 96, history: '', review: '甘草和黑醋栗打头，干净，层层往外翻，骨架撑得住浓度。纳帕这个价位里少见的不油腻，中段扎实，再放五年会更愉悦。', reasoning: '纳帕顶级赤霞珠起点 94；JD 98 减 4 再取平均得 94；Las Piedras 园他在 2013 酒会上评价很高（干净、骨架平衡），风格对他胃口，加 2 分。', interest: '', sources: [{ title: '杰神酒会后记 | 2013年份纳帕盛宴，满分酒精彩各异', url: 'https://www.sohu.com/a/253269736_764488', date: '2018-09-11' }] },
   critics: [{ critic: 'Jeb Dunnuck', score: '98', url: 'https://jebdunnuck.com/x' }, { critic: 'Wine Advocate', score: '97+', url: '' }, { critic: 'Vinous', score: '96', url: '' }],
 };

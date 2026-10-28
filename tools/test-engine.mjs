@@ -19,6 +19,11 @@ assert.deepEqual(producers('de Vogüé', 'Musigny'), ['Domaine Comte Georges de 
 assert.match(lookupScores({ producer: 'Two Buck Chuck', wine: '' }), /^No rows/);
 assert.match(lookupScores({ producer: 'Realm', wine: 'The Absurd' }), /Realm Cellars \| Absurd \| 2015 \| 100 \| RP100 JD100 \| L19/);
 assert.match(lookupScores({ producer: 'Realm', wine: 'The Absurd' }), /L19: 杰神葡萄酒榜单·2019, 2020-01-29, https:\/\/www\.sohu\.com\/a\/369445347_764488/);
+// and says who made which vintages there, with or without rows of his
+assert.match(lookupScores({ producer: 'Realm Cellars', wine: 'The Bard' }), /\n\nWho made the wine there[^\n]*\nRealm Cellars \| Benoit Touquette \| 酿酒师 \| 2011–2022 全程；2023、2024 只负责采收和发酵 \|/);
+assert.match(lookupScores({ producer: 'Tusk Estates', wine: '' }), /\nTusk \| Philippe Melka \|/);
+assert.match(lookupScores({ producer: 'Fairest Creature', wine: 'Triniceros' }), /^No rows for "Fairest Creature"[^\n]*\n\nWho made the wine there[^]*Michel Rolland \| 调配 \| 2018–2024/);
+assert.ok(!lookupScores({ producer: 'Le Pin', wine: '' }).includes('Who made'));
 
 const sse = (events) => events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join('');
 const msgStart = (id) => ({ type: 'message_start', message: { id, type: 'message', role: 'assistant', model: 'claude-opus-5-5', content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1000, output_tokens: 1, cache_read_input_tokens: 500, cache_creation_input_tokens: 0 } } });
@@ -39,7 +44,7 @@ const turn2 = [
   ...block(1, { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [{ type: 'web_search_result', url: 'https://example.com', title: 't', encrypted_content: 'x', page_age: null }] }),
   ...end('pause_turn', 50, 1),
 ];
-const verdict = { wine: { identified: true, producer: 'Fait-Main', name: 'Las Piedras', vintage: '2019', region: 'St. Helena', grapes: 'Cabernet Sauvignon', drink_window: '2027–2045', confidence: 'high', notes: 'n' }, jieshen: { source: 'predicted', score: '96', scale: '100', score_value: 96, history: '', review: 'r', reasoning: 'w', interest: '', sources: [] }, critics: [{ critic: 'Jeb Dunnuck', score: '98', url: '' }] };
+const verdict = { wine: { identified: true, producer: 'Fait-Main', name: 'Las Piedras', vintage: '2019', region: 'St. Helena', grapes: 'Cabernet Sauvignon', drink_window: '2027–2045', winemaker: 'Benoit Touquette', confidence: 'high', notes: 'n' }, jieshen: { source: 'predicted', score: '96', scale: '100', score_value: 96, history: '', review: 'r', reasoning: 'w', interest: '', sources: [] }, critics: [{ critic: 'Jeb Dunnuck', score: '98', url: '' }] };
 const turn3 = [
   msgStart('msg_3'),
   ...block(0, { type: 'server_tool_use', id: 'srvtoolu_2', name: 'web_search', input: {} }, { query: 'Fait-Main Las Piedras 2019 Jeb Dunnuck' }),
@@ -78,6 +83,7 @@ assert.equal(asked.role, 'assistant');
 assert.equal(answered.content[0].type, 'tool_result');
 assert.equal(answered.content[0].tool_use_id, 'toolu_1');
 assert.match(answered.content[0].content, /Fait-Main \| Beckstoffer Las Piedras Vineyard Cabernet Sauvignon \| 2018 \| 97/);
+assert.match(answered.content[0].content, /Fait-Main \| Benoit Touquette \| 庄主、酿酒师/);
 // the paused turn goes back as it came, with no extra user message
 assert.equal(bodies[2].messages.length, 4);
 assert.deepEqual(bodies[2].messages[3].content.map((c) => c.type), ['server_tool_use', 'web_search_tool_result']);
