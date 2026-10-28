@@ -368,7 +368,7 @@ const I18N = {
     stepDone: '完成',
     conf: { high: '把握大', medium: '把握一般', low: '把握不大' },
     kicker: '这是',
-    region: '产区', grapes: '品种', drink: '适饮期',
+    region: '产区', grapes: '品种', winemaker: '酿酒师', drink: '适饮期',
     stamp: { found: '杰神原评', predicted: '模拟评分', none: '认不出' },
     scaleOf: { 100: '满分 100', stars: '满分 6★', words: '文字评价' },
     key: '怎么看杰神的分：93 及格，95 以上是真喜欢，98 以上惊艳，100 封神。同一款酒，他平均比 Parker 一系的评家低 4 分左右。',
@@ -439,7 +439,7 @@ const I18N = {
     stepDone: 'Done',
     conf: { high: 'sure', medium: 'fairly sure', low: 'not sure' },
     kicker: 'This is',
-    region: 'Region', grapes: 'Grapes', drink: 'Drink',
+    region: 'Region', grapes: 'Grapes', winemaker: 'Winemaker', drink: 'Drink',
     stamp: { found: 'His score', predicted: 'Simulated', none: 'Unknown' },
     scaleOf: { 100: 'out of 100', stars: 'out of 6★', words: 'in words' },
     key: 'Reading his scores: 93 is a pass, 95 and up means he really likes it, 98 and up is stunning, 100 is legendary. On the same wine he averages about 4 points below the Parker school of critics.',
@@ -606,7 +606,7 @@ function renderSteps() {
 
 function renderWine(w) {
   const T = I18N[state.lang];
-  const facts = [[T.region, w.region], [T.grapes, w.grapes], [T.drink, w.drink_window]].filter(([, v]) => v);
+  const facts = [[T.region, w.region], [T.grapes, w.grapes], [T.winemaker, w.winemaker], [T.drink, w.drink_window]].filter(([, v]) => v);
   return `<section class="wine">` +
     `<p class="kicker">${esc(T.kicker)} · <b>${esc(T.conf[w.confidence] || '')}</b></p>` +
     `<h3 class="wine-name">${esc(w.producer)}${w.name ? `<span class="cuvee">${esc(w.name)}${w.vintage ? `<span class="vint">${esc(w.vintage)}</span>` : ''}</span>` : w.vintage ? `<span class="vint">${esc(w.vintage)}</span>` : ''}</h3>` +

@@ -11,7 +11,8 @@
 // do the regional averages he published, in every region whose tables are all there). The 2025 list
 // has no scores, only a colour per wine; what each colour means is read from what the article says
 // about the wines it names, and the framework says so. Scores are as he gave them; the notes are
-// paraphrases, not his words. sim.js puts all of this into the prompt.
+// paraphrases, not his words. sim.js puts the framework into the prompt; Claude reads the rows and
+// the winemakers through its lookup tool.
 
 export const FRAMEWORK = `# 杰神是谁
 
@@ -48,6 +49,18 @@ export const FRAMEWORK = `# 杰神是谁
 - 点名骂过：Opus One（生青、酸高单宁糙、陈年快出老味）、Dominus（2013 年以后瘫软）、Caymus、Silver Oak、Shafer、Hundred Acre（「中年油腻大叔」）、Bevan、Lokoya、Verité、Quilceda Creek、Cayuse、Kapcsandy 和 Blankiet 的美乐、2012 年以后的 Insignia、Scarecrow、Ghost Horse、Arnoux-Lachaux（又瘫又甜，像 Kosta Browne）、Kosta Browne、Ponsot、Dujac（多数年份；1990 Clos de la Roche 是例外，给了 100）、Prieuré Roch（Suchots 2013 给了 70，就是他文中「菜刀的 Suchots」那支年度最恶心的酒）。Screaming Eagle 和 2015 年以前的 Dana 他只算二流。
 - 他不信「波尔多都能陈年」，难喝就是难喝，跟年轻无关；不喜欢用醒酒器。分数不看价格（他说没有性价比这一回事），价不符值只在评语里骂。
 
+# 他和酿酒师
+
+- 他认为酒的风格由酿酒师决定的远多于由风土决定，赤霞珠的精髓在调配。所以他按酿酒师给酒庄分时代：同一块地，换了人就是另一款酒。他的分界线和酒庄换人的时间对得上：Realm 2012 年以后才是「真正的 Realm」（Benoit Touquette 2011 年 9 月接手）；Bryant 在 Helen Turley 手里（1992–2001）最好，Philippe Melka 接手（2002 年起）以后走下坡，2019 年他说正在慢慢改回来，2023 年份他已标为顶级（Kathryn Carothers 2018 年起任酿酒师）；Colgin 2010 年以后才真正崛起（Allison Tauziet 2007 年起任酿酒师），Turley 和 Mark Aubert 时期的 Colgin 他说难喝；Dana 2015 年以前太生硬，Chris Cooney 2015 年起任酿酒师，Dana 他打分最高的年份（2015–2019 的 Lotus，98 到 100）都是 Cooney 做的；Screaming Eagle 2006 年易主扩产以后他说不如 Realm。
+- Michel Rolland 是他最服的人：说他的味觉和调配「天下第二」（意思是没人敢称第一），神兽酒庄三位酿酒师的酒只有他配调配，他信 Rolland 胜过任何酒评家。他认同 Rolland 的取舍：坏年份宁可过熟，也不要生青。Rolland 2026 年 3 月去世，麒麟 Triniceros 以他调配的 2024 年份收尾。但 Rolland 当顾问的酒庄不因此自动加分：早年他说不迷恋这些酒庄的风格，Harlan 1997 满分他也说难喝；要看他对那个酒庄、那个时期怎么说。
+- 他认为纳帕最顶尖的三位酿酒师是 Thomas Rivers Brown、Philippe Melka 和 Benoit Touquette，神兽酒庄请的就是他们，一人一款：
+  - Benoit Touquette：他称为天才酿酒师，Realm 的崛起靠他；Touquette 自己的 Fait-Main 他说极好喝；他的压榨酒特别好。2025 年 3 月 Touquette 改任 Realm 顾问，Kelly Fields（酿酒师）和 Chris Cooney（种植总监）接手：2023、2024 年份由 Touquette 采收、发酵，由新团队调配，2025 年份起完全是新团队。
+  - Thomas Rivers Brown：他称为新生代的酿酒巨星，Schrader（2000 年起）、Maybach（2004 年起）都是 Brown 做的；他说 Harlan 花了六年学 Brown 做 To Kalon。
+  - Philippe Melka：敬重他的酒干净、耐陈年（九尾狐年轻时不讨好，他认为日后可能是三款里最好的），但嫌他的压榨酒用不上，也看低他做的 Bryant。Tusk 是 Melka 自己的酒庄，他喜欢。
+- Helen Turley 他称为「女酒神」：Bryant 和 Marcassin 霞多丽都在她手里最好，只是她脾气古怪、难合作。
+- 也欣赏：Christopher Tynan（他自己的酒，他说超级牛）、Luc Morlet（Force de la Nature 2013 是他喝过最好的品丽珠）、Manfred Krankl（鬼才）。
+- 不喜欢：Celia Welch（Scarecrow 时好时坏，好的只有 2005、2007、2010、2013，他因此没请她）、Russell Bevan（完全不喜欢；Carter Cellars 2019 年份起由他调配、2021 年份起由他酿）、Hundred Acre 的 Jayson Woodbridge、Lokoya；他说 David Abreu 开始敷衍了。
+
 # 利益关系
 
 据他 2017–2019 年的文章，他的公司杰森洋行卖过 Realm、Schrader、Myriad、Dana、Tusk 的酒；神兽酒庄 Fairest Creature（Triniceros 麒麟、Polyspline 九尾狐、Sine Fine 比翼鸟、Perihelios 鲲）是他自己的。这些酒他给的分和评家几乎持平，别的酒他平均要低 4 到 5 分。他也爱拿自家的 2018 麒麟去比别人的名酒（他说 Screaming Eagle 1992 被它「按在泥地里摩擦」）。
@@ -57,13 +70,79 @@ export const FRAMEWORK = `# 杰神是谁
 1. 起点：纳帕顶级赤霞珠 94；加州其他高端酒 93；顶级年份香槟 96；勃艮第一级园、特级园 93；隆河顶级 93；波尔多列级庄老年份 93、十年内的年轻年份 89；意大利 88；澳洲、西班牙 91；华盛顿州 88；中国 85。两百美元以下的进口酒不在他的榜单范围里，给 90 以下，并说一句他一般不喝这种酒。
 2. 有 RP/WA 或 JD 的分数时：评家分减 4，再和起点取平均。
 3. 酒庄：他钟爱的 +2 到 +4，骂过的 −5 到 −12。
-4. 风格：生青、早采、高酸干瘦 −3 到 −8；瘫、油腻、空、散 −3 到 −8；怪味 −8 以上；纯净、浓缩、平衡、有张力 +1 到 +3；老酒状态完美 +2。
-5. 他评过的同一款酒的其他年份、同一酒庄的其他酒，是最强的证据，比上面几步都重要。
-6. 100 只给封神级；他能接受的酒大多落在 93–97。
+4. 酿酒师：先弄清这个年份是谁酿、谁调配的（查表会附上酒庄的酿酒师年表）。他欣赏的酿酒师做的酒 +1 到 +3，他不喜欢的 −3 到 −6，和第 3 步的酒庄加减分不要重复算。酒庄的加分跟着人走：他喜欢的酒庄换了酿酒师，新人的年份不再自动享受酒庄加分，旧年份的分数也只能打折参考。新人有他打过分的作品（比如 Cooney 的 Dana），就按那些作品估计；没有，就比旧年份低 2 到 4，并在点评里点明换了人。只换了调配的人（Realm 的 2023、2024）减 1 到 2。反过来，他骂过的酒庄换了好的酿酒师，分数也能回升。
+5. 风格：生青、早采、高酸干瘦 −3 到 −8；瘫、油腻、空、散 −3 到 −8；怪味 −8 以上；纯净、浓缩、平衡、有张力 +1 到 +3；老酒状态完美 +2。
+6. 他评过的同一款酒的其他年份、同一酒庄的其他酒，是最强的证据，比上面几步都重要，但只限同一位酿酒师做的年份。
+7. 100 只给封神级；他能接受的酒大多落在 93–97。
 
 # 他的口吻
 
 毒舌、口语、敢和评家唱反调，第一人称「我」和第三人称「杰神」混用，爱用网络梗（「肥肠好喝」）。骂的都是具体缺陷（生青、瘫、空、臭、价不符值），夸起来也很极端（「极尽优雅温润」）。高频词：好喝、难喝、愉悦、干净、纯净、平衡、集中度、张力、结构、中段、生青、瘫、散、油腻、空、绿。榜单短评常常就一句话；长评按香气、口感（酸、单宁、骨架、中段）、结论（愉悦不愉悦、能不能陈年、和别的酒比）来写。模拟时保留他的锋利，但不写脏话，也不骂具体的人。`;
+
+// Who made which vintages at the producers he rates, from the wineries and the wine press (October 2026):
+// producer (spelled as in REVIEWS, or the producer's own name), winemaker, role, vintages, note, source.
+// lookupScores returns a producer's entries with its rows. Only what a source confirms; gaps say so.
+export const WINEMAKERS = [
+  ["Realm Cellars", "Benoit Touquette", "酿酒师", "2011–2022 全程；2023、2024 只负责采收和发酵", "2011 年 9 月到任；2025 年 3 月改任顾问，仍是股东和董事", "https://www.realmcellars.com/anecdotes/winegrowing-team-evolution"],
+  ["Realm Cellars", "Kelly Fields（酿酒师）、Chris Cooney（种植总监）", "接任团队", "2023、2024 的调配和装瓶；2025 年份起全权", "Fields 来自 Joseph Phelps 和 Tench；Cooney 2015–2024 年份任 Dana 酿酒师", "https://www.realmcellars.com/anecdotes/the-2024-vintage"],
+  ["Realm Cellars", "Michel Rolland", "顾问", "约 2011 起，到他 2026 年 3 月去世", "Touquette 请来的", "https://worldoffinewine.com/tasting-notes/realm-cellars-2023"],
+  ["Bryant Family Vineyard", "Helen Turley", "酿酒师", "1992–2001", "2002 年 10 月被换掉", "https://www.winespectator.com/articles/helen-turley-leaves-napas-bryant-family-vineyard-21445"],
+  ["Bryant Family Vineyard", "Philippe Melka", "酿酒师", "2002 年起；2011 年以前 Mark Aubert、Ross Wallace 也做过，年份未查实", "", "https://www.winespectator.com/articles/helen-turley-leaves-napas-bryant-family-vineyard-21445"],
+  ["Bryant Family Vineyard", "Michel Rolland", "顾问", "2002 年起，到他 2026 年 3 月去世", "", "https://www.winespectator.com/articles/helen-turley-leaves-napas-bryant-family-vineyard-21445"],
+  ["Bryant Family Vineyard", "Helen Keplinger", "酿酒师", "2011", "2012 年采收前离开", "https://www.winespectator.com/articles/helen-keplinger-leaves-bryant-family-vineyard-47518"],
+  ["Bryant Family Vineyard", "Todd Alexander", "酿酒师", "2012 年起；2014 年起 Marc Gagnon，年份未查实", "", "https://www.vinography.com/2013/01/winemaker_musical_chairs"],
+  ["Bryant Family Vineyard", "Kathryn \"KK\" Carothers", "酿酒师", "2018 起", "曾在 Rolland 和 David Abreu 手下工作", "https://www.decanter.com/premium/bryant-family-vineyard-tasting-these-elusive-napa-cabernets-478404"],
+  ["Schrader Cellars", "Thomas Rivers Brown", "酿酒师", "2000 起", "2017 年 Constellation 收购后留任", "https://www.winespectator.com/articles/constellation-buys-napa-cabernet-star-schrader-cellars"],
+  ["Maybach Family Vineyards", "Thomas Rivers Brown", "酿酒师", "2004 起", "", "https://benchmarkwine.com/products/9540-maybach-family-vineyards-cabernet-sauvignon-materium-2004"],
+  ["Rivers-Marie", "Thomas Rivers Brown", "庄主、酿酒师", "", "Brown 自己的酒庄", "https://www.winespectator.com/articles/the-midas-touch-of-thomas-rivers-brown-56998"],
+  ["Outpost", "Thomas Rivers Brown", "酿酒师", "年份未查实", "", "https://www.winespectator.com/articles/the-midas-touch-of-thomas-rivers-brown-56998"],
+  ["Dana Estates", "Philippe Melka", "顾问", "首个年份起", "", "https://www.napawineproject.com/dana-estates/"],
+  ["Dana Estates", "Cameron Vawter", "酿酒师", "2015 年以前，年份未查实", "", "https://www.napawineproject.com/dana-estates/"],
+  ["Dana Estates", "Chris Cooney", "酿酒师", "2015–2024", "2025 年初去 Realm", "https://www.realmcellars.com/anecdotes/winegrowing-team-evolution"],
+  ["Dana Estates", "Maura Johnson", "酿酒总监", "2025 起", "2018 年起任助理酿酒师", "https://wineindustryadvisor.com/2025/07/09/dana-estates-announces-maura-johnson-as-director-of-winemaking/"],
+  ["Tusk", "Philippe Melka", "酿酒师、合伙人", "2008 起", "", "https://www.napawineproject.com/tusk-estates/"],
+  ["Colgin Cellars", "Helen Turley", "酿酒师", "1992–1998", "", "https://www.winespectator.com/articles/colgin-replaces-helen-turley-with-mark-aubert-20251"],
+  ["Colgin Cellars", "Mark Aubert", "顾问酿酒师", "1999–2006", "", "https://gismondionwine.com/blog/colgin-cellars-appoints-new-winemaker"],
+  ["Colgin Cellars", "Allison Tauziet", "酿酒师", "2007 起", "2018 年起任酿酒总监", "https://colgincellars.com/history/allison-tauziet/"],
+  ["Harlan Estate", "Bob Levy", "酿酒师", "创立到 2008", "", "https://www.winewithseth.com/winewiki/harlan-estate/"],
+  ["Harlan Estate", "Cory Empting", "酿酒总监", "2008 起", "", "https://www.winewithseth.com/winewiki/harlan-estate/"],
+  ["Harlan Estate", "Michel Rolland", "顾问", "约 1988 起，到他 2026 年 3 月去世", "", "https://www.winespectator.com/articles/michel-rolland-prominent-wine-consultant-and-vintner-dies"],
+  ["Promontory", "Cory Empting", "酿酒师", "2009 起", "Harlan 家族的酒庄；后来由 David Cilli 专任，年份未查实", "https://www.decanter.com/premium/promontory-harlans-rugged-napa-territory-432112"],
+  ["Screaming Eagle", "Heidi Barrett", "酿酒师", "1992 起，到 2005 前后（结束年份未查实）", "", "https://www.winewithseth.com/winewiki/screaming-eagle/"],
+  ["Screaming Eagle", "Andy Erickson", "酿酒师", "2006–2010", "2006 年酒庄易主", "https://www.winespectator.com/articles/screaming-eagles-winemaker-departs-44279"],
+  ["Screaming Eagle", "Nick Gislason", "酿酒师", "2011 起", "", "https://www.winewithseth.com/winewiki/screaming-eagle/"],
+  ["Scarecrow", "Celia Welch", "酿酒师", "2003 起（近年是否仍由她酿未查实）", "", "https://en.wikipedia.org/wiki/Scarecrow_(wine)"],
+  ["Fairest Creature", "Philippe Melka", "酿酒师", "2018 起", "Polyspline 九尾狐", "https://www.napawineproject.com/fairest-creature/"],
+  ["Fairest Creature", "Benoit Touquette", "酿酒师", "2018 起", "Sine Fine 比翼鸟", "https://www.napawineproject.com/fairest-creature/"],
+  ["Fairest Creature", "Thomas Rivers Brown", "酿酒师", "2018 起", "Perihelios 鲲", "https://www.napawineproject.com/fairest-creature/"],
+  ["Fairest Creature", "Michel Rolland", "调配", "2018–2024", "Triniceros 麒麟，用三位酿酒师的酒调配；2024 是最后一个年份", "https://www.napawineproject.com/fairest-creature/"],
+  ["Fait-Main", "Benoit Touquette", "庄主、酿酒师", "", "Touquette 自己的酒", "https://jebdunnuck.com/2017/07/the-wines-of-benoit-touquette-fait-main-teeter-totter-familiar-air-jack-quinn-kata-and-others/"],
+  ["Vice Versa", "Paul Hobbs", "酿酒师", "2003–2013", "", "https://www.napawineproject.com/vice-versa-wine/"],
+  ["Vice Versa", "Philippe Melka", "顾问", "2013 年以后（起始年份未查实）", "2024 起 Spencer Kelly 任驻庄酿酒师", "https://www.napawineproject.com/vice-versa-wine/"],
+  ["Continuum", "Tim Mondavi", "庄主、酿酒师", "2005 起", "", "https://www.napawineproject.com/continuum-estate/"],
+  ["Abreu Vineyards", "Brad Grimes", "酿酒师", "2000 起", "庄主 David Abreu 管葡萄园", "https://en.wikipedia.org/wiki/Abreu_Vineyards"],
+  ["Sloan Estate", "Martha McClellan", "酿酒师", "2001 起（一说 2004）", "", "https://www.napawineproject.com/sloan-estate/"],
+  ["Sloan Estate", "Michel Rolland", "顾问", "2001 起，到他 2026 年 3 月去世", "", "https://www.napawineproject.com/sloan-estate/"],
+  ["Morlet Family Vineyards", "Luc Morlet", "庄主、酿酒师", "2006 起", "", "https://www.napawineproject.com/morlet-family-vineyards"],
+  ["Hundred Acre", "Jayson Woodbridge", "庄主、酿酒师", "2000 起", "早年 Philippe Melka 当顾问，结束年份未查实", "https://www.decanter.com/premium/producer-profile-hundred-acre-plus-18-great-wines-to-try-521923"],
+  ["Dalla Valle Vineyards", "Andy Erickson", "酿酒师", "约 2008–2020", "2021 起改任顾问", "https://www.napawineproject.com/dalla-valle-vineyards/"],
+  ["Dalla Valle Vineyards", "Maya Dalla Valle", "酿酒师", "2021 起", "", "https://www.winewithseth.com/winewiki/dalla-valle/"],
+  ["Dalla Valle Vineyards", "Michel Rolland", "顾问", "二十多年，到他 2026 年 3 月去世", "", "https://www.napawineproject.com/dalla-valle-vineyards/"],
+  ["Myriad Cellars", "Mike Smith", "庄主、酿酒师", "2005 前后起", "1999–2003 在 Thomas Rivers Brown 手下学艺", "https://www.napawineproject.com/myriad-cellars/"],
+  ["Carter Cellars", "Mike Smith", "酿酒师", "到 2019 年份的采收", "", "https://thewineindependent.com/articles/russell-bevan-spotlight/"],
+  ["Carter Cellars", "Russell Bevan", "酿酒师", "2019 年份由他调配，2021 年份起全权", "", "https://thewineindependent.com/articles/russell-bevan-spotlight/"],
+  ["Bevan Cellars", "Russell Bevan", "庄主、酿酒师", "2004 起", "", "https://thewineindependent.com/articles/russell-bevan-spotlight/"],
+  ["Ovid", "Andy Erickson", "酿酒师", "创立到 2010", "", "https://en.wikipedia.org/wiki/Ovid_Napa_Valley"],
+  ["Ovid", "Austin Peterson", "酿酒师", "2011 起", "", "https://en.wikipedia.org/wiki/Ovid_Napa_Valley"],
+  ["Memento Mori", "Sam Kaplan", "庄主、酿酒师", "2010 起", "", "https://www.napawineproject.com/memento-mori-wine/"],
+  ["Seven Apart", "Andy Erickson", "酿酒师", "2018 到 2023 前后", "2024 年 6 月起 Morgan Maurèze 任首席酿酒师", "https://www.napawineproject.com/seven-apart"],
+  ["Christopher Tynan", "Christopher Tynan", "庄主、酿酒师", "", "也是 Cliff Lede 的酿酒师（2012 起）", "https://www.northbaybusinessjournal.com/article/industrynews/napa-valleys-cliff-lede-names-tynan-winemaking-director-medtronic-picks-c/"],
+  ["Cliff Lede", "Christopher Tynan", "酿酒师", "2012 起", "后任酿酒总监", "https://www.northbaybusinessjournal.com/article/industrynews/napa-valleys-cliff-lede-names-tynan-winemaking-director-medtronic-picks-c/"],
+  ["To Kalon Vineyard Company", "Andy Erickson", "酿酒师", "2016 起", "", "https://www.cbrands.com/blogs/press-releases/announcing-the-launch-of-to-kalon-vineyard-company"],
+  ["Lokoya", "Chris Carpenter", "酿酒师", "约 2000 起", "", "https://www.napawineproject.com/lokoya-winery"],
+  ["Sine Qua Non", "Manfred Krankl", "庄主、酿酒师", "1994 起", "", "https://en.wikipedia.org/wiki/Sine_Qua_Non_(wine)"],
+  ["Marcassin", "Helen Turley、John Wetlaufer", "庄主、酿酒师", "1990 年代初起", "", "https://en.wikipedia.org/wiki/Helen_Turley"],
+];
 
 export const SOURCES = {
   L16: { title: "杰神葡萄酒榜单·2016", date: "2017-01-24", url: "https://weixin.sogou.com/weixin?type=2&query=%E6%9D%B0%E7%A5%9E%E8%91%A1%E8%90%84%E9%85%92%E6%A6%9C%E5%8D%95%C2%B72016" },

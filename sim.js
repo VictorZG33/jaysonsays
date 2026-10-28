@@ -7,10 +7,11 @@
 // 杰神's framework and the scores he has published are in reviews.js, collected from his articles.
 // The framework goes into the prompt; the 1,359 rows don't, since they would make every question cost
 // eight times as much. Claude asks for a producer's rows with the lookup_scores tool, which runs here
-// (lookupScores). His scores sit in image tables inside WeChat posts that search engines don't index,
+// (lookupScores) and also says who made which vintages there, since he judges the winemaker as much
+// as the estate. His scores sit in image tables inside WeChat posts that search engines don't index,
 // so web search only finds other critics' scores for a prediction.
 
-import { FRAMEWORK, REVIEWS, SOURCES } from './reviews.js';
+import { FRAMEWORK, WINEMAKERS, REVIEWS, SOURCES } from './reviews.js';
 
 // Claude Opus 5.5 reads labels and matches them against his rows best. Sonnet 5.5 costs about half.
 export const SIM_MODEL = 'claude-opus-5-5';
@@ -36,7 +37,8 @@ const words = (s) => fold(s).split(' ').filter((w) => w && !STOP.has(w)).flatMap
 const CJK = /[\u3400-\u9fff]/;
 const hits = (word, name) => name.split(' ').some((n) => n === word || (CJK.test(word) && CJK.test(n) && (n.includes(word) || word.includes(n))));
 
-// Every row for a producer: all its wines and vintages, the asked-for wine first, as text for Claude
+// Every row for a producer: all its wines and vintages, the asked-for wine first, and who made which
+// vintages there, as text for Claude
 export function lookupScores({ producer, wine }) {
   const want = words(producer), cuvee = words(wine);
   if (!want.length) return 'Give the producer\'s name.';
@@ -49,18 +51,28 @@ export function lookupScores({ producer, wine }) {
   if (!rows.length) {
     // nothing has every word: fall back to producers sharing a longer word, so a misspelling still lands
     rows = REVIEWS.filter((r) => want.some((w) => w.length > 3 && hits(w, fold(r[0]))));
-    if (!rows.length) return `No rows for "${producer}": he hasn't judged this producer in anything collected.`;
-    head = `No producer matches "${producer}" exactly; ${rows.length} rows of producers sharing a word with it`;
+    head = rows.length ? `No producer matches "${producer}" exactly; ${rows.length} rows of producers sharing a word with it`
+      : `No rows for "${producer}": he hasn't judged this producer in anything collected`;
   }
   if (rows.length > MAX_ROWS) {
     rows = rows.map((r, i) => [r, i]).sort((a, b) => rank(b[0]) - rank(a[0]) || a[1] - b[1]).slice(0, MAX_ROWS)
       .sort((a, b) => a[1] - b[1]).map(([r]) => r);
     head += `, the ${MAX_ROWS} that best match "${wine}" shown`;
   }
+  // the winemakers of the producers found, or of the producer asked for when he hasn't judged it
+  const names = [...new Set(rows.map((r) => fold(r[0])))];
+  const made = WINEMAKERS.filter(([p]) => {
+    const key = words(p);
+    return names.some((n) => key.every((w) => hits(w, n))) || want.every((w) => hits(w, fold(p)));
+  });
   const ids = [...new Set(rows.map((r) => r[5]))];
-  return `${head}. One per line: producer | wine | vintage | his score | critics' scores printed next to it | list or article | gist of his note\n` +
+  let out = head + '.';
+  if (rows.length) out += ' One per line: producer | wine | vintage | his score | critics\' scores printed next to it | list or article | gist of his note\n' +
     rows.map((r) => r.join(' | ')).join('\n') + '\n\nSources:\n' +
     ids.map((id) => `${id}: ${SOURCES[id].title}, ${SOURCES[id].date}, ${SOURCES[id].url}`).join('\n');
+  if (made.length) out += '\n\nWho made the wine there, one per line: producer | winemaker | role | vintages | note | source\n' +
+    made.map((m) => m.join(' | ')).join('\n');
+  return out;
 }
 
 const SYSTEM = `You are 杰神模拟器 (Jieshen Simulator), a page on wentaoz.com. A visitor photographs a wine label or types the name of a wine. You:
@@ -72,7 +84,7 @@ ${FRAMEWORK}
 
 # His table
 
-Every verdict of his that could be collected: his lists of 2016 to 2025 (L16 … L25; 2017 lacks 17 wines the article itself lacks) and the wines his articles judge (A1 … A6), ${REVIEWS.length} rows. Scores are exactly as he gave them; the notes are paraphrases, not his words. A blank score with a note is a verdict from an article rather than a score. Read it with lookup_scores: search engines don't index any of it.
+Every verdict of his that could be collected: his lists of 2016 to 2025 (L16 … L25; 2017 lacks 17 wines the article itself lacks) and the wines his articles judge (A1 … A6), ${REVIEWS.length} rows. Scores are exactly as he gave them; the notes are paraphrases, not his words. A blank score with a note is a verdict from an article rather than a score. Read it with lookup_scores: search engines don't index any of it. With the rows, the lookup lists who made which vintages at that producer, as far as could be confirmed, each with its source.
 
 # How to work
 
@@ -80,7 +92,7 @@ Identify the wine. Read the producer, cuvée or vineyard, appellation and vintag
 
 Look it up: call lookup_scores with the producer's name in English, as the table would write it, and the wine. It returns every row of that producer, all wines and vintages. If nothing comes back, try another spelling or a shorter name ("Romanee-Conti" for DRC, "Lafite" for Chateau Lafite Rothschild). You may look up other producers to compare with, up to ${LOOKUPS} lookups in all. A row is his verdict on this wine only when producer, wine and vintage all match; the table may spell names differently from the label. If the same wine appears more than once (two bottles, or two years' lists), put the most recent verdict in score, with its scale and value, and every verdict with its list in history.
 - Found: source "found". Give the score exactly as in the table, and its scale: "100" for the 2019–2023 lists, "stars" for the 2017–2018 lists, "words" for the 2016 grades, for the 2025 colour verdicts (say that the colour's meaning is inferred), for a bottle he marked Corked, Oxidized or Bottle shock, or for a verdict without a score (then give the verdict in two to six characters as the score, e.g. "难喝"). score_value is the score on the 100-point scale: stars by the conversion above, words by your best estimate, and 0 for a faulty bottle. Retell the note in your own words; if there is no note, say so and say what the score means on his scale. Give that source's title, URL and date. Use the critics' scores printed next to it for the critics list.
-- Not found: source "predicted". Follow his rules for predicting, on the 100-point scale. The same wine in another vintage, and other wines of the same producer, are your best evidence. Anchor on other critics' scores for this exact wine and vintage: search for them with web_search (at most ${SEARCHES} searches, e.g. "<producer> <wine> <vintage> Wine Advocate Jeb Dunnuck score"), unless you already know them reliably or the wine is too obscure to have any. Write a note of 60 to 150 Chinese characters (or 40 to 100 English words) in his voice that names the specific things he would praise or punish. In the reasoning, name the parts of his framework that decide the score and the closest wines in his table. List up to three of those rows' sources as the sources. A prediction is a simulation, and the page labels it as one; don't claim he said it.
+- Not found: source "predicted". Follow his rules for predicting, on the 100-point scale. The same wine in another vintage, and other wines of the same producer, are your best evidence, but only for vintages the same winemaker made: check who made this vintage in what the lookup lists, and if it doesn't say, from what you reliably know or a search. Anchor on other critics' scores for this exact wine and vintage: search for them with web_search (at most ${SEARCHES} searches, e.g. "<producer> <wine> <vintage> Wine Advocate Jeb Dunnuck score"), unless you already know them reliably or the wine is too obscure to have any. Write a note of 60 to 150 Chinese characters (or 40 to 100 English words) in his voice that names the specific things he would praise or punish. In the reasoning, name the parts of his framework that decide the score and the closest wines in his table. List up to three of those rows' sources as the sources. A prediction is a simulation, and the page labels it as one; don't claim he said it.
 - interest: if the producer is one his company has sold (Realm, Schrader, Myriad, Dana, Tusk) or his own Fairest Creature, say so in one short sentence; otherwise "".
 - critics: other critics' scores for this exact wine and vintage, only from his table, from a search result (give its URL) or from reliable knowledge (URL ""). Otherwise leave the list empty; never guess a critic's score.
 - Don't search the web for 杰神's own reviews: search engines don't index them, and his table is everything that can be found.
@@ -100,7 +112,7 @@ const VERDICT_TOOL = {
       wine: {
         type: 'object',
         additionalProperties: false,
-        required: ['identified', 'producer', 'name', 'vintage', 'region', 'grapes', 'drink_window', 'confidence', 'notes'],
+        required: ['identified', 'producer', 'name', 'vintage', 'region', 'grapes', 'drink_window', 'winemaker', 'confidence', 'notes'],
         properties: {
           identified: { type: 'boolean', description: 'false when the image or text is not a recognisable wine' },
           producer: S('The producer as on the label, followed by its usual Chinese name in parentheses when it has one'),
@@ -109,6 +121,7 @@ const VERDICT_TOOL = {
           region: S('Appellation, region and country, e.g. "St. Helena, Napa Valley, California, USA"'),
           grapes: S('Main grape or blend, e.g. "Cabernet Sauvignon" or "Pinot Noir"'),
           drink_window: S('Years to drink it, e.g. "2026–2040", or "" when unknown'),
+          winemaker: S('Who made this vintage: the winemaker, and a consultant he would care about, e.g. "Benoit Touquette" or "Thomas Rivers Brown; Michel Rolland consulting". "" when unknown'),
           confidence: { type: 'string', enum: ['high', 'medium', 'low'], description: 'How sure the identification is' },
           notes: S('One or two sentences: what you read and anything you had to assume. In the reply language.'),
         },
@@ -158,7 +171,7 @@ const VERDICT_TOOL = {
 
 const LOOKUP_TOOL = {
   name: 'lookup_scores',
-  description: 'Look up 杰神\'s verdicts in his table (his lists of 2016–2025 and his articles). Returns every row for the producer: all its wines and vintages, with his score, the critics\' scores printed beside it, the source and the gist of his note. Call it before giving a verdict.',
+  description: 'Look up 杰神\'s verdicts in his table (his lists of 2016–2025 and his articles). Returns every row for the producer: all its wines and vintages, with his score, the critics\' scores printed beside it, the source and the gist of his note; and who made which vintages there. Call it before giving a verdict.',
   strict: true,
   input_schema: {
     type: 'object',
