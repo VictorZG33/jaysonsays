@@ -21,12 +21,18 @@ The page sends the photo (scaled to at most 1568 px) and the text to Claude Opus
 
 By default the request goes through the Cloudflare Worker in `worker/`, which keeps the site's Anthropic API key secret, checks the input, allows 3 questions a minute per IP address and only accepts requests from wentaoz.com. A visitor can tick *Use my own Anthropic API key*; the page then runs the same code in the browser with their key (kept in `localStorage` under `jaysonsays.apiKey` only if they tick *Remember*).
 
+The Worker keeps the answers it gets, in Workers KV: the verdict and the date it was given, never the photo or who asked. His own verdicts are kept for 180 days and predictions for 30, since critics may score the wine in the meantime. Each answer goes under two keys, both made in `sim.js`:
+- `textKey`: the words asked, in any order and case and without words like *Domaine*. The same words asked again get the kept answer at once, without asking Claude, without counting against the rate limit, and even if the site's key is off.
+- `wineKey`: producer, wine and vintage, as Claude's first `lookup_scores` call names them. The same wine and vintage asked another way (another spelling, a label photo) get the kept answer as soon as Claude has worked out the wine. That costs one short turn, a cent or two, and the conversation ends there.
+
+Both keys carry `ANSWER_VERSION`, a hash of the model, the prompt, the tools and the data in `reviews.js`, so a deploy that changes how answers are made, or what they are made from, starts afresh. The page marks a kept answer with its date and has a button to ask again without it (`fresh: true`), which replaces the kept answer. Answers through a visitor's own key are neither read from nor kept in the store.
+
 ## Files
 
 - `index.html`: the page. `ENDPOINT` near the top of its script is the Worker's address; `PRICE` is what it charges per token and per search, for the cost line under each answer.
-- `sim.js`: the engine, shared by the page and the Worker. `checkInput` checks a question, `buildRequest` shapes the Claude request (prompt, tools, the `give_verdict` schema), `lookupScores` answers Claude's table lookups, and `runSimulator` runs the conversation: it answers lookups (at most 4), continues a turn the API paused, and reports each lookup, search, the verdict and the token counts as events.
+- `sim.js`: the engine, shared by the page and the Worker. `checkInput` checks a question, `buildRequest` shapes the Claude request (prompt, tools, the `give_verdict` schema), `lookupScores` answers Claude's table lookups, `textKey` and `wineKey` say where an answer is kept, and `runSimulator` runs the conversation: it answers lookups (at most 4), stops at the first lookup when it is handed a kept answer for that wine, continues a turn the API paused, and reports each lookup, search, kept answer, the verdict and the token counts as events.
 - `reviews.js`: what it knows about 杰神. `FRAMEWORK` is his framework in Chinese, which goes into the prompt: his scales, how he relates to other critics, what he rewards and punishes, his interests, his rules for a score, his voice. `WINEMAKERS` says who made which vintages at 34 producers, each with its source, for the lookups to return with a producer's rows. `SOURCES` are the articles, `REVIEWS` the rows that lookups read, one wine each: producer, wine, vintage, his score, the critics' scores printed next to it, the source, and the gist of his note.
-- `worker/`: the Cloudflare Worker (`worker.js`, `wrangler.toml`).
+- `worker/`: the Cloudflare Worker (`worker.js`, `wrangler.toml`), with its rate limit and the `ANSWERS` KV namespace for kept answers.
 - `.github/workflows/worker.yml`: deploys the Worker.
 - `tools/`: the tests.
 - `og.png`: the 1200×630 link-preview image.
@@ -78,6 +84,8 @@ Once, in this repository's settings:
    - `ANTHROPIC_API_KEY`: a key from a workspace with a monthly spend limit in the Anthropic Console; the limit is what caps the bill.
 3. **Worker**: Actions → Worker → Run workflow. The run's summary shows the Worker's address, `https://jaysonsays.<subdomain>.workers.dev`, which should match `ENDPOINT` in `index.html`.
 
+The first deploy also creates the KV namespace for kept answers, `jaysonsays-answers`, and binds it to the Worker; later deploys keep using it. A token from the *Edit Cloudflare Workers* template may do that (it includes *Workers KV Storage: Edit*); with a token that may not, wrangler warns that it skipped provisioning and the deploy fails, so add that permission to the token, or take the `[[kv_namespaces]]` block out of `wrangler.toml` to run without kept answers. To start the store afresh, delete the namespace's keys in the Cloudflare dashboard (Storage & Databases → KV).
+
 After that, `.github/workflows/worker.yml` redeploys the Worker whenever `worker/`, `sim.js` or `reviews.js` changes on `main`, and uploads the key each time, so to change the key, update the secret and run the workflow again. Without the key the Worker answers `503 not_configured` and the page points visitors to their own key. Claude's web search is on for every Anthropic organization unless an administrator has turned it off (Console → Settings → Capabilities); if it is off, every question fails with a 400 saying so.
 
 To deploy by hand instead: `cd worker && npm install && npx wrangler login && npx wrangler secret put ANTHROPIC_API_KEY && npx wrangler deploy`.
@@ -87,6 +95,7 @@ To deploy by hand instead: `cd worker && npm install && npx wrangler login && np
 ```sh
 cd worker && npm ci && cd ..
 node tools/test-engine.mjs                     # the engine against the real SDK, API mocked
+node tools/test-worker.mjs                     # the Worker and its kept answers, API and KV mocked
 python3 -m http.server 8765 --bind 127.0.0.1   # then, in another shell:
 node tools/test-page.cjs                       # the page in Chromium, Worker mocked
 ```
@@ -95,7 +104,7 @@ To try the Worker itself, put `ANTHROPIC_API_KEY=...` in `worker/.dev.vars` (git
 
 ## Cost
 
-Each question is a short Claude Opus 5.5 conversation: usually one turn to look the producer up and one to answer. The cached part (the prompt and the tools, about 13,000 tokens) costs about US$0.07 to write for the first question in five minutes and about half a cent to read for later ones; a lookup's rows add a few thousand input tokens. Measured on the live site: 2015 Realm The Absurd, which he has scored three times, cost US$0.11 with the cache cold; a prediction for 2021 Ridge Monte Bello, with one search for other critics' scores (US$0.01 a search plus the results as input tokens), cost US$0.07 with the cache warm. Expect about US$0.05–0.15 a question. (With the whole table in the prompt, as at first, the prompt was 76,505 tokens and a question cost about US$0.40.) `SIM_MODEL` in `sim.js` picks the model; Claude Sonnet 5.5 costs about half as much (change `PRICE` in `index.html` to match).
+Each question is a short Claude Opus 5.5 conversation: usually one turn to look the producer up and one to answer. The cached part (the prompt and the tools, about 13,000 tokens) costs about US$0.07 to write for the first question in five minutes and about half a cent to read for later ones; a lookup's rows add a few thousand input tokens. Measured on the live site: 2015 Realm The Absurd, which he has scored three times, cost US$0.11 with the cache cold; a prediction for 2021 Ridge Monte Bello, with one search for other critics' scores (US$0.01 a search plus the results as input tokens), cost US$0.07 with the cache warm. Expect about US$0.05–0.15 for a new wine. A wine asked again costs nothing in the same words and a cent or two otherwise (see the kept answers above). (With the whole table in the prompt, as at first, the prompt was 76,505 tokens and a question cost about US$0.40.) `SIM_MODEL` in `sim.js` picks the model; Claude Sonnet 5.5 costs about half as much (change `PRICE` in `index.html` to match).
 
 ## Disclaimer
 

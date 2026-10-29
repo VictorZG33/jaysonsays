@@ -18,10 +18,14 @@ piece does and where the data comes from.
   his text copied. Keep each list in table order and check its counts against its article.
   `WINEMAKERS` entries name the producer as `REVIEWS` spells it (or as the winery does, if he has
   no rows for it) and carry a source; mark a gap 「未查实」 rather than guess.
+- The Worker keeps answers in Workers KV under `textKey` and `wineKey` (`sim.js`); both carry
+  `ANSWER_VERSION`, a hash of the model, prompt, tools and data, so changing any of them starts the
+  store afresh. Keep only the verdict and its date there, never the photo or anything about who asked.
 - A change to `worker/`, `sim.js` or `reviews.js` on `main` redeploys the Worker.
 
 ## Testing
 
-Run `node tools/test-engine.mjs` (after `npm ci` in `worker/`) and `node tools/test-page.cjs`
-with the repository served on 127.0.0.1:8765; see README.md. There is no API key in the tests:
-the engine test mocks the API under the real SDK, the page test mocks the Worker.
+Run `node tools/test-engine.mjs` and `node tools/test-worker.mjs` (after `npm ci` in `worker/`) and
+`node tools/test-page.cjs` with the repository served on 127.0.0.1:8765; see README.md. There is no
+API key in the tests: the engine test mocks the API under the real SDK, the Worker test also fakes
+KV, the page test mocks the Worker.

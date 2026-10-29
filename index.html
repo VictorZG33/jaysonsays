@@ -221,6 +221,7 @@ input[type="text"], input[type="password"] {
 .prose p { margin: 0 0 10px; }
 .meta { margin: 12px 0 0; font: 400 12.5px/1.5 var(--mono); color: var(--muted); }
 .meta:empty { display: none; }
+.again { margin: 12px 0 0; }
 
 /* method */
 details { border-top: 1px solid var(--rule); margin-top: 40px; }
@@ -306,6 +307,7 @@ footer .sig { font-family: var(--display-latin); font-style: italic; font-size: 
     <ol class="steps" id="steps" aria-live="polite"></ol>
     <div id="out"></div>
     <p class="meta" id="meta"></p>
+    <p class="again" id="again" hidden><button type="button" class="btn small" id="again-btn"></button></p>
   </section>
 
   <details id="method-box">
@@ -365,6 +367,7 @@ const I18N = {
     stepRead: '读酒标', stepText: '认酒',
     stepLookup: (p) => `翻他的榜单：${p}`,
     stepSearch: (q) => `搜索「${q}」`,
+    stepCached: (d) => `这款酒 ${d} 有人问过，直接用当时的答案`,
     stepDone: '完成',
     conf: { high: '把握大', medium: '把握一般', low: '把握不大' },
     kicker: '这是',
@@ -389,6 +392,8 @@ const I18N = {
     truncated: '回答太长被截断了，再试一次。',
     noAnswer: '这次没有得出结论，再试一次。',
     usage: (u, cost) => `${u.searches} 次搜索 · 输入 ${u.input + u.cacheRead + u.cacheWrite} / 输出 ${u.output} tokens · 约 $${cost}`,
+    kept: (d) => `${d} 存下的答案`, free: '这次没有调用 Claude，花费 $0',
+    again: '不用存下的答案，重新问一次',
     err: {
       401: 'API key 无效或已被停用，请检查后再试。',
       403: '这个 API key 没有权限调用这个模型。',
@@ -406,7 +411,7 @@ const I18N = {
       '<p><span class="k">怎么认酒</span><br>照片和你输入的文字一起交给 Anthropic 的 Claude 模型，它读出酒庄、酒款、年份和产区，按这款酒的名声和年份估一个适饮期。看不清的地方，它会说明自己猜了什么。</p>' +
       '<p><span class="k">怎么查杰神的分数</span><br>他的分数都在微信文章的图片表格里，搜索引擎搜不到。所以这里用的是一张从他的榜单里整理出来的评分表：2016 到 2023 年的六份榜单逐张读图录入，每份的酒款数、满分酒数都和文中写的对得上（只有 2017 年原文自己就缺了 17 款）。2025 年的榜单不再打分，只给每款酒标一种颜色，颜色的意思是按他文中点名的酒推断的：红是超一流，蓝是顶级，黑是正常，橙是老了或名不副实，绿是糟糕，灰是最恶心。再加上他文章里点评过的酒，一共一千三百多条。Claude 按酒庄翻这张表，拿到这个酒庄的全部记录，酒庄、酒款、年份都对上才算他评过，并附上出处；同一酒庄的其他记录也是预测时最好的参照。</p>' +
       '<p><span class="k">怎么预测</span><br>表里没有时，Claude 按他的打分习惯推一个百分制分数：先按产区定起点，再参照他给同一款酒其他年份、同一酒庄打过的分，还会上网查 Wine Advocate、Jeb Dunnuck 等评家给这款酒的分数作锚（最多搜 3 次），然后模仿他的口吻写一段短评。这一部分是模拟，页面上用虚线的印章标出来。</p>' +
-      '<p><span class="k">照片和费用</span><br>默认请求经本站的服务器转给 Anthropic，由本站付费，服务器不保存照片和回答。用你自己的 API key 时，请求从你的浏览器直接发给 Anthropic，费用记在你的账上。每问一瓶大约 0.05–0.15 美元。</p>' +
+      '<p><span class="k">照片和费用</span><br>默认请求经本站的服务器转给 Anthropic，由本站付费。服务器不保存照片，也不记录是谁问的，但会按酒把回答存下来：杰神真评过的存半年，预测的存一个月。之后有人用同样的字再问，直接给存下的答案，不花钱；换个说法或拍酒标问同一款酒、同一个年份，Claude 认出酒以后也直接用存下的答案，只花认酒的一两美分。答案下面有按钮可以不用旧答案、重新问。用你自己的 API key 时，请求从你的浏览器直接发给 Anthropic，费用记在你的账上，也不读存下的答案。每问一瓶新酒大约 0.05–0.15 美元。</p>' +
       '<p><span class="k">声明</span><br>本页与杰神本人无关。他的分数和文章归他所有，这里只给分数、转述和出处链接。他代理或自己酿的酒，页面会注明。</p>',
     footSig: '杰神模拟器', footNote: '开瓶之前，先问问杰神。',
   },
@@ -436,6 +441,7 @@ const I18N = {
     stepRead: 'Reading the label', stepText: 'Working out the wine',
     stepLookup: (p) => `Looking up ${p} in his lists`,
     stepSearch: (q) => `Searching “${q}”`,
+    stepCached: (d) => `Asked before on ${d}: reusing that answer`,
     stepDone: 'Done',
     conf: { high: 'sure', medium: 'fairly sure', low: 'not sure' },
     kicker: 'This is',
@@ -460,6 +466,8 @@ const I18N = {
     truncated: 'The answer ran too long and was cut off. Try again.',
     noAnswer: 'No verdict came back this time. Try again.',
     usage: (u, cost) => `${u.searches} searches · ${u.input + u.cacheRead + u.cacheWrite} in / ${u.output} out tokens · about $${cost}`,
+    kept: (d) => `Answer kept since ${d}`, free: 'no call to Claude this time, $0',
+    again: 'Ask again instead of using the kept answer',
     err: {
       401: 'The API key is invalid or has been disabled. Check it and try again.',
       403: 'This API key isn’t allowed to use this model.',
@@ -477,14 +485,14 @@ const I18N = {
       '<p><span class="k">Identifying the wine</span><br>The photo and whatever you typed go to Anthropic’s Claude, which reads the producer, cuvée, vintage and region and estimates a drinking window from the wine’s reputation and the vintage. Where something is unreadable, it says what it assumed.</p>' +
       '<p><span class="k">Finding his score</span><br>His scores are image tables inside WeChat articles, which search engines can’t see. So the page uses a table collected from his lists: every list from 2016 to 2025, read image by image, each matching the number of wines and of 100-point wines its article states (but for 17 wines of 2017 that the article itself lacks). The 2025 list has no scores, only a colour per wine, and the colours’ meanings are inferred from what he writes about the wines he names: red is outstanding, blue top-class, black ordinary, orange old or not worth its name, green poor, grey the most disgusting. With the wines his other articles judge, that is over 1,300 rows. Claude looks the producer up in it and gets back all of that producer’s rows; it counts as his verdict only when producer, wine and vintage all match, and it comes with the source. The producer’s other rows are also the best evidence for a prediction.</p>' +
       '<p><span class="k">Predicting</span><br>When the wine isn’t in the table, Claude predicts a score out of 100 the way he scores: a starting point for the region, then what he gave other vintages of the same wine and the same producer, anchored on other critics’ scores for the wine, such as Wine Advocate and Jeb Dunnuck, which it looks up on the web (at most 3 searches). Then it writes a short note in his voice. That part is a simulation, and the page marks it with a dashed seal.</p>' +
-      '<p><span class="k">Photos and cost</span><br>By default the request goes through this site’s server to Anthropic and the site pays; the server keeps neither the photo nor the answer. With your own API key, the request goes from your browser straight to Anthropic and is billed to you. Each bottle costs about US$0.05–0.15.</p>' +
+      '<p><span class="k">Photos and cost</span><br>By default the request goes through this site’s server to Anthropic and the site pays. The server keeps no photos and no record of who asked, but it keeps the answers by wine: his own verdicts for six months, predictions for a month. Anyone who asks again in the same words gets the kept answer at no cost; the same wine and vintage asked another way, or from a label photo, gets it as soon as Claude has worked out the wine, for a cent or two. A button under the answer asks afresh instead. With your own API key, the request goes from your browser straight to Anthropic, is billed to you and doesn’t use the kept answers. Each new bottle costs about US$0.05–0.15.</p>' +
       '<p><span class="k">Disclaimer</span><br>This page has nothing to do with 杰神 himself. His scores and articles are his; this page shows only the scores, retold notes and links to the sources. Where he sells or makes the wine, the page says so.</p>',
     footSig: 'Jieshen Simulator', footNote: 'Ask 杰神 before you pull the cork.',
   },
 };
 
 // ---------- state ----------
-const state = { lang: 'zh', photo: null, busy: false, last: null };   // photo: base64 JPEG; last: what to redraw on a language switch
+const state = { lang: 'zh', photo: null, busy: false, last: null, fresh: false };   // photo: base64 JPEG; last: what to redraw on a language switch; fresh: skip kept answers once
 try {
   const saved = localStorage.getItem(LANG_KEY);
   state.lang = saved === 'zh' || saved === 'en' ? saved : (navigator.language || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en';
@@ -507,6 +515,7 @@ function renderStatic() {
   setText('own-key-label', T.ownKey); setText('mode-hint', T.siteHint);
   setText('key-label', T.keyLabel); setText('key-keep-label', T.keyKeep); setText('key-hint', T.keyHint);
   setText('go', state.busy ? T.going : T.go);
+  setText('again-btn', T.again);
   setText('h-out', T.hOut);
   setText('method-h', T.methodH); $('method').innerHTML = T.method;
   setText('foot-sig', T.footSig); setText('foot-note', T.footNote);
@@ -597,6 +606,7 @@ function stepText(s) {
   if (s.kind === 'text') return T.stepText;
   if (s.kind === 'lookup') return T.stepLookup(s.arg);
   if (s.kind === 'search') return T.stepSearch(s.arg);
+  if (s.kind === 'cached') return T.stepCached(s.arg);
   return T.stepDone;
 }
 function renderSteps() {
@@ -678,9 +688,11 @@ function renderOut() {
   if (L.usage) {
     const u = L.usage;
     const cost = ((u.input + u.cacheWrite * 1.25 + u.cacheRead * 0.1) * PRICE.input + u.output * PRICE.output) / 1e6 + u.searches * PRICE.search;
-    meta = T.usage(u, cost.toFixed(3));
+    meta = L.kept && cost === 0 ? T.free : T.usage(u, cost.toFixed(3));
+    if (L.kept) meta = T.kept(L.kept) + ' · ' + meta;
   }
   setText('meta', meta);
+  $('again').hidden = !(L.kept && L.done);
   if (L.stop === 'refusal') say('ask-msg', T.refusal, true);
   else if (L.stop === 'max_tokens' && !L.verdict) say('ask-msg', T.truncated, true);
   else if (L.stop && !L.verdict && !L.text) say('ask-msg', T.noAnswer, true);
@@ -691,6 +703,7 @@ function onEvent(ev) {
   const L = state.last;
   if (ev.type === 'lookup') L.steps.push({ kind: 'lookup', arg: ev.producer });
   else if (ev.type === 'search') L.steps.push({ kind: 'search', arg: ev.query });
+  else if (ev.type === 'cached') { L.kept = ev.at; L.steps.push({ kind: 'cached', arg: ev.at }); }
   else if (ev.type === 'verdict') L.verdict = ev.verdict;
   else if (ev.type === 'text') L.text = ev.text;
   else if (ev.type === 'done') { L.done = true; L.stop = ev.stop; L.usage = ev.usage; L.steps.push({ kind: 'done' }); }
@@ -718,8 +731,12 @@ async function askSite(input) {
   if (!state.last.done) throw new Error('the answer was cut off');
 }
 
+// Asks the same question again without the kept answer
+$('again-btn').addEventListener('click', () => { state.fresh = true; $('ask').requestSubmit(); });
+
 $('ask').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const fresh = state.fresh; state.fresh = false;
   if (state.busy) return;
   const T = I18N[state.lang];
   const text = $('text-input').value.trim().slice(0, 200);
@@ -734,6 +751,7 @@ $('ask').addEventListener('submit', async (e) => {
   renderOut();
   $('step-out').scrollIntoView({ behavior: 'smooth', block: 'start' });
   const input = { lang: state.lang, text, image: state.photo || null };
+  if (fresh) input.fresh = true;
   try {
     if (!own) await askSite(input);
     else {

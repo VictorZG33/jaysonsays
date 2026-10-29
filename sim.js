@@ -10,6 +10,10 @@
 // (lookupScores) and also says who made which vintages there, since he judges the winemaker as much
 // as the estate. His scores sit in image tables inside WeChat posts that search engines don't index,
 // so web search only finds other critics' scores for a prediction.
+//
+// The Worker keeps the answers it gets (see worker.js), under textKey for a question typed the same
+// way and under wineKey for the wine and vintage Claude's first lookup names, so a wine asked again
+// costs little or nothing; runSimulator checks for a kept answer at that first lookup.
 
 import { FRAMEWORK, WINEMAKERS, REVIEWS, SOURCES } from './reviews.js';
 
@@ -90,7 +94,7 @@ Every verdict of his that could be collected: his lists of 2016 to 2025 (L16 …
 
 Identify the wine. Read the producer, cuvée or vineyard, appellation and vintage from the label, or from the visitor's text. If a detail is unreadable or ambiguous, make your best guess, lower the confidence and say what you assumed. The label or the visitor's text decides which wine it is, with what you know of the producer's range; his table and web searches only add facts about that wine. A search result about another wine of the same producer (another cuvée, a white where the wine is red) doesn't change what this wine is and isn't evidence about it. Estimate a drinking window from the wine's reputation, the vintage and today's date. If the image is not a wine label, or the text is not a wine, set identified to false, set source to "none" and explain in a sentence.
 
-Look it up: call lookup_scores with the producer's name in English, as the table would write it, and the wine. It returns every row of that producer, all wines and vintages. If nothing comes back, try another spelling or a shorter name ("Romanee-Conti" for DRC, "Lafite" for Chateau Lafite Rothschild). You may look up other producers to compare with, up to ${LOOKUPS} lookups in all. A row is his verdict on this wine only when producer, wine and vintage all match; the table may spell names differently from the label. If the same wine appears more than once (two bottles, or two years' lists), put the most recent verdict in score, with its scale and value, and every verdict with its list in history.
+Look it up: call lookup_scores with the producer's name in English, as the table would write it, the wine and the vintage. It returns every row of that producer, all wines and vintages. If nothing comes back, try another spelling or a shorter name ("Romanee-Conti" for DRC, "Lafite" for Chateau Lafite Rothschild). You may look up other producers to compare with, up to ${LOOKUPS} lookups in all. A row is his verdict on this wine only when producer, wine and vintage all match; the table may spell names differently from the label. If the same wine appears more than once (two bottles, or two years' lists), put the most recent verdict in score, with its scale and value, and every verdict with its list in history.
 - Found: source "found". Give the score exactly as in the table, and its scale: "100" for the 2019–2023 lists, "stars" for the 2017–2018 lists, "words" for the 2016 grades, for the 2025 colour verdicts (say that the colour's meaning is inferred), for a bottle he marked Corked, Oxidized or Bottle shock, or for a verdict without a score (then give the verdict in two to six characters as the score, e.g. "难喝"). score_value is the score on the 100-point scale: stars by the conversion above, words by your best estimate, and 0 for a faulty bottle. Retell the note in your own words; if there is no note, say so and say what the score means on his scale. Give that source's title, URL and date. Use the critics' scores printed next to it for the critics list.
 - Not found: source "predicted". Follow his rules for predicting, on the 100-point scale. The same wine in another vintage, and other wines of the same producer, are your best evidence, but only for vintages the same winemaker made: check who made this vintage in what the lookup lists, and if it doesn't say, from what you reliably know or a search. Anchor on other critics' scores for this exact wine and vintage: search for them with web_search (at most ${SEARCHES} searches, e.g. "<producer> <wine> <vintage> Wine Advocate Jeb Dunnuck score"), unless you already know them reliably or the wine is too obscure to have any. A recent or unreleased vintage often has no scores yet: if no result is about this exact wine and vintage, say so and leave critics empty rather than borrow another wine's. Write a note of 60 to 150 Chinese characters (or 40 to 100 English words) in his voice that names the specific things he would praise or punish. In the reasoning, name the parts of his framework that decide the score and the closest wines in his table. List up to three of those rows' sources as the sources. A prediction is a simulation, and the page labels it as one; don't claim he said it.
 - interest: if the producer is one his company has sold (Realm, Schrader, Myriad, Dana, Tusk) or his own Fairest Creature, say so in one short sentence; otherwise "".
@@ -176,10 +180,11 @@ const LOOKUP_TOOL = {
   input_schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['producer', 'wine'],
+    required: ['producer', 'wine', 'vintage'],
     properties: {
       producer: S('The producer in English, e.g. "Realm Cellars", "Domaine de la Romanee-Conti", "Chateau Lafite Rothschild"'),
       wine: S('The cuvée or vineyard to list first, e.g. "The Absurd", or ""'),
+      vintage: S('The vintage asked about, four digits or "NV", or "" when unknown'),
     },
   },
 };
@@ -193,6 +198,7 @@ export function checkInput(x) {
   if (x.text != null && !isText(x.text, MAX_TEXT)) return 'text too long';
   if (x.image != null && (!isText(x.image, MAX_IMAGE) || !/^[A-Za-z0-9+/]+=*$/.test(x.image))) return 'bad image';
   if (!x.image && !(x.text && x.text.trim())) return 'empty';
+  if (x.fresh != null && typeof x.fresh !== 'boolean') return 'bad fresh';
   return '';
 }
 
@@ -224,18 +230,39 @@ export function buildRequest(x, today = new Date().toISOString().slice(0, 10)) {
   };
 }
 
+// Where the Worker keeps answers. A question typed again, in any word order or case, finds the
+// answer under textKey; the same wine and vintage asked another way (a photo, another spelling) under
+// wineKey, from the producer, wine and vintage of Claude's first lookup. ANSWER_VERSION changes with
+// the model, the prompt, the tools and the data, so a deploy that changes how answers are made, or
+// what they are made from, starts afresh.
+const hash = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return (h >>> 0).toString(36); };
+export const ANSWER_VERSION = hash(SIM_MODEL + SYSTEM + JSON.stringify([LOOKUP_TOOL, VERDICT_TOOL, REVIEWS, SOURCES, WINEMAKERS]));
+export function textKey(x) {
+  const w = x.image ? [] : [...new Set(words(x.text))].sort();
+  return w.length ? `${ANSWER_VERSION}:${x.lang}:t:${w.join(' ')}` : null;
+}
+export function wineKey(lang, { producer, wine, vintage }) {
+  const p = words(producer).join(' '), v = String(vintage || '').trim().toUpperCase();
+  return p && /^(\d{4}|NV)$/.test(v) ? `${ANSWER_VERSION}:${lang}:w:${p}|${words(wine).join(' ')}|${v}` : null;
+}
+
 // Runs one question to the end and reports what happens through emit():
 //   { type: 'lookup', producer }  his table is being read for a producer
 //   { type: 'search', query }     a web search started
 //   { type: 'verdict', verdict }  the answer, shaped by give_verdict's schema
 //   { type: 'text', text }        prose, if the model answered without give_verdict
-//   { type: 'done', stop, usage } always last unless the API call throws
+//   { type: 'cached', at }        recall had an answer for the wine, kept since that date
+//   { type: 'done', stop, usage } always last unless the API call throws; stop is 'cached' after a
+//                                 kept answer
+// recall(key), when given, looks up a kept answer { verdict, at } by wineKey at Claude's first lookup;
+// if there is one, it goes out as the verdict and the conversation ends there. Returns the verdict,
+// the wineKey (null if the first lookup named no vintage) and the kept answer if one was used.
 // The conversation goes on while Claude asks for lookups (answered here) or the API pauses a turn
 // at its limit of server-tool steps ("pause_turn"), until give_verdict.
-export async function runSimulator(client, x, emit) {
+export async function runSimulator(client, x, emit, { recall } = {}) {
   const req = buildRequest(x);
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, searches: 0 };
-  let msg, lookups = 0;
+  let msg, lookups = 0, key = null;
   for (let turn = 0; turn < 8; turn++) {
     const stream = client.beta.messages.stream(req);
     stream.on('contentBlock', (b) => {
@@ -254,6 +281,17 @@ export async function runSimulator(client, x, emit) {
     }
     const calls = msg.content.filter((b) => b.type === 'tool_use' && b.name === 'lookup_scores');
     if (msg.stop_reason !== 'tool_use' || !calls.length || msg.content.some((b) => b.type === 'tool_use' && b.name === 'give_verdict')) break;
+    if (!lookups) {
+      key = wineKey(x.lang, calls[0].input);
+      const kept = key && recall ? await recall(key) : null;
+      if (kept) {
+        emit({ type: 'lookup', producer: String(calls[0].input.producer) });
+        emit({ type: 'cached', at: kept.at });
+        emit({ type: 'verdict', verdict: kept.verdict });
+        emit({ type: 'done', stop: 'cached', usage });
+        return { verdict: kept.verdict, key, kept };
+      }
+    }
     const results = calls.map((c) => {
       if (++lookups > LOOKUPS) return { type: 'tool_result', tool_use_id: c.id, is_error: true, content: 'No more lookups: give the verdict with what you have.' };
       emit({ type: 'lookup', producer: String(c.input.producer) });
@@ -268,4 +306,5 @@ export async function runSimulator(client, x, emit) {
     if (text) emit({ type: 'text', text });
   }
   emit({ type: 'done', stop: msg.stop_reason, usage });
+  return { verdict: call ? call.input : null, key, kept: null };
 }

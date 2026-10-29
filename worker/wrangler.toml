@@ -1,4 +1,4 @@
-# The server behind 杰神模拟器 Jieshen Simulator (wentaoz.com/jieshen/).
+# The server behind 杰神模拟器 Jieshen Simulator (wentaoz.com/jaysonsays/).
 # .github/workflows/worker.yml deploys it whenever this folder, sim.js or reviews.js changes on main.
 name = "jaysonsays"
 main = "worker.js"
@@ -14,3 +14,8 @@ namespace_id = "1002"
   [ratelimits.simple]
   limit = 3
   period = 60
+
+# The answers it keeps (see worker.js). No id: wrangler deploy creates the namespace the first time,
+# named jaysonsays-answers, and later deploys keep using the one the Worker is bound to.
+[[kv_namespaces]]
+binding = "ANSWERS"
