@@ -1,6 +1,6 @@
 // Drives the page in Chromium with the Worker mocked: every kind of verdict (his score in points, stars
-// and words, several verdicts on one wine, a prediction, not a wine), the error paths and a photo upload, in both languages and
-// themes. Prints what each run sent and showed, and saves full-page screenshots to tools/shots/.
+// and words, several verdicts on one wine, a prediction, not a wine), a kept answer and asking again
+// without it, the error paths and a photo upload, in both languages and themes. Prints what each run sent and showed, and saves full-page screenshots to tools/shots/.
 //   python3 -m http.server 8765 --bind 127.0.0.1    (in the repository root)
 //   node tools/test-page.cjs
 const { chromium } = require('playwright');
@@ -39,11 +39,16 @@ const nd = (v) => [
   { type: 'verdict', verdict: v },
   { type: 'done', stop: 'tool_use', usage: { input: 3000, output: 2100, cacheRead: 21000, cacheWrite: 0, searches: 3 } },
 ].map((e) => JSON.stringify(e)).join('\n') + '\n';
+// A kept answer: for the same words (no call to Claude), or found at Claude's first lookup
+const keptText = (v) => [{ type: 'cached', at: '2026-10-29' }, { type: 'verdict', verdict: v }, { type: 'done', stop: 'cached', usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, searches: 0 } }]
+  .map((e) => JSON.stringify(e)).join('\n') + '\n';
+const keptWine = (v) => [{ type: 'lookup', producer: 'Fait-Main' }, { type: 'cached', at: '2026-10-29' }, { type: 'verdict', verdict: v }, { type: 'done', stop: 'cached', usage: { input: 1200, output: 380, cacheRead: 13000, cacheWrite: 0, searches: 0 } }]
+  .map((e) => JSON.stringify(e)).join('\n') + '\n';
 
 (async () => {
   const browser = await chromium.launch({ proxy });
   const errors = [];
-  async function run(name, { width = 390, height = 844, dark = false, lang = 'zh', reply, photo = false, text = '2019 Fait-Main Las Piedras' }) {
+  async function run(name, { width = 390, height = 844, dark = false, lang = 'zh', reply, photo = false, text = '2019 Fait-Main Las Piedras', again = false }) {
     const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: dark ? 'dark' : 'light', locale: lang === 'zh' ? 'zh-CN' : 'en-US' });
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(name + ': ' + e.message));
@@ -69,9 +74,17 @@ const nd = (v) => [
       await page.waitForTimeout(300);
     }
     await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
+    const shown = await page.evaluate(() => !document.querySelector('#again').hidden);
+    let askedAgain;
+    if (again) {
+      // Ask again without the kept answer: the request says fresh, and the button goes away
+      await page.click('#again-btn');
+      await page.waitForFunction(() => !document.querySelector('#go').disabled);
+      askedAgain = { fresh: sent.fresh, shown: await page.evaluate(() => !document.querySelector('#again').hidden) };
+    }
     const info = await page.evaluate(() => ({ fits: [...document.querySelectorAll('.seal .score')].every((e) => e.scrollWidth <= e.parentElement.clientWidth && e.getBoundingClientRect().bottom <= e.parentElement.getBoundingClientRect().bottom), msg: document.querySelector('#ask-msg').textContent, steps: [...document.querySelectorAll('#steps li')].map((l) => l.textContent), meta: document.querySelector('#meta').textContent, overflow: document.documentElement.scrollWidth > window.innerWidth }));
     if (sent && sent.image) sent.image = `<${sent.image.length} chars>`;
-    console.log(name, JSON.stringify({ sent, ...info }));
+    console.log(name, JSON.stringify({ sent, ...info, again: shown, ...(askedAgain ? { askedAgain } : {}) }));
     await ctx.close();
   }
   await run('01-start', {});
@@ -88,6 +101,9 @@ const nd = (v) => [
   await run('08-error-instream', { reply: JSON.stringify({ type: 'error', status: 400, message: 'Your credit balance is too low' }) + '\n' });
   await run('09-photo', { reply: nd(predicted), photo: true, text: '' });
   await run('10-empty', { reply: nd(predicted), text: '' });
+  let n = 0;
+  await run('11-kept-text', { reply: (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson', 'access-control-allow-origin': '*' }, body: n++ ? nd(predicted) : keptText(predicted) }), again: true });
+  await run('12-kept-wine-en', { reply: keptWine(found), lang: 'en', photo: true, text: '' });
   console.log('errors:', errors);
   await browser.close();
 })();
