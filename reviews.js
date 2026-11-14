@@ -14,18 +14,34 @@
 // paraphrases, not his words. sim.js puts the framework into the prompt; Claude reads the rows and
 // the winemakers through its lookup tool.
 
+// What his stars, his 2016 grades and his 2025 colours come to on his 100-point scale, read off his
+// own scores: where each grade falls in the spread of the 503 points he gave in 2019–2023 (a grade
+// given to the top 9% of a list sits where the top 9% of his points do), checked against wines he
+// judged both ways. The two agree: 2016's 好喝 comes to 97.0 by the spread and 96.9 by the 9 wines
+// he also scored, 表现正常 to 93.1 both ways; 6★ to 97–98 against 16 wines. A 2025 正常 (black, the
+// middle 60% of that list) comes to 95 by the spread, but the 13 black wines he had scored before
+// averaged 96: it means the wine drank as it should, so it stands for what he gave that wine before
+// where he did. sim.js holds a found verdict to these values, but for 正常.
+export const SCALE_VALUES = {
+  '6★': 98, '5★': 96, '4★': 93, '3★': 90, '2★': 87, '1★': 80,
+  '超级好喝': 99, '好喝': 97, '表现正常': 93, '很普通': 90, '不好喝': 88, '难喝': 86, '超级难喝': 80,
+  '超一流': 100, '顶级': 98, '正常': 95, '老了/失望': 91, '糟糕': 88, '最恶心': 70,
+};
+const values = (keys) => keys.map((k) => `${k} ${SCALE_VALUES[k]}`).join('，');
+
 export const FRAMEWORK = `# 杰神是谁
 
 杰神（Jayson Hu）写微信公众号「杰神自号」。他在南京做美国精品酒进口（杰森洋行），2018 年在纳帕创办了自己的神兽酒庄 Fairest Creature。每年他把喝过的高端酒整理成「杰神葡萄酒榜单」，每款打分；也写酒会记录和点名批评的长文。
 
 # 他的分制
 
-- 2016 榜单：文字等级，超级好喝 > 好喝 > 很普通 / 不好喝 > 难喝 > 超级难喝；「表现正常」是喝起来和预期差不多；还有「老了」「进入封闭期」「奇怪的酒」「这个价位喝起来一般」这样的附注。
-- 2017、2018 榜单：1 到 6 星，星越多喝着越愉悦；2017 还标了状态（超级年轻、年轻、适饮、略老、老）。同一款酒后来又打过百分的，换算大致是：6★ ≈ 97–100，5★ ≈ 95–97，4★ ≈ 92–94，3★ ≈ 89–91，2★ ≈ 85–88，1★ ≈ 82 以下。
+- 2016 榜单：文字等级，超级好喝 > 好喝 > 很普通 / 不好喝 > 难喝 > 超级难喝；「表现正常」是喝起来和预期差不多；还有「老了」「进入封闭期」「奇怪的酒」「这个价位喝起来一般」这样的附注。换成百分制：${values(['超级好喝', '好喝', '表现正常', '很普通', '不好喝', '难喝', '超级难喝'])}。
+- 2017、2018 榜单：1 到 6 星，星越多喝着越愉悦；2017 还标了状态（超级年轻、年轻、适饮、略老、老）。换成百分制：${values(['6★', '5★', '4★', '3★', '2★', '1★'])}。
 - 2019–2023 榜单：100 分制，旁边标 RP/WA 和 Jeb Dunnuck（JD）的分数（2021 起只标满分）。坏瓶（Corked、Oxidized、Bottle shock、受热）不打分，只标注；同一款酒两瓶不一样就分开打。
 - 2019–2023 四份榜单共 503 个分数：均值 93.5，标准差 4.5，100 分 28 个（约 5%）。70 分只给过几款：死掉的老酒、Prieuré Roch Suchots 2013、木杺红 2021。他说 93 分以下的都真的很难喝。所以在他这里：93 及格，95 以上是真喜欢，98 以上惊艳，100 封神。
 - 他不给 100 的理由也很具体：酒已到顶、不会再更好（Henri Jayer Richebourg 1959 给 99），对陈年时间存疑（Fairchild Perrarus 2015 给 99），有一丝 brett（La Mission Haut-Brion 1989 给 99）。
-- 2025 榜单（2026 年 2 月发布）不再打分，约 210 款，只收 200 到 7 万美元的酒（国产酒例外），每款酒的名字用颜色标出，他说给足了暗示，但没说颜色的意思。按他文中点名的酒推断：红＝超一流（Yquem 1943、1961 La Chapelle、Huet Le Haut-Lieu 1947、Egon Müller Eiswein 1983），蓝＝顶级（Krug Clos du Mesnil 2008、Colgin IX 2019），黑＝正常，橙＝传奇或名贵却老了、名不副实（Le Pin 1982、Vega Sicilia 1962、Rousseau Chambertin 1991、Screaming Eagle 1992），绿＝糟糕（他点名的 Fourrier、Kalin、Les Horées、William Kelley，和最让他失望的 DRC Romanée-Conti 2022），灰＝年度最恶心（Audiffred Reignots 2022）。表里这一年的分数写的就是这些词。换成百分制大致是：超一流 99–100，顶级 96–98，正常 92–94，老了/失望 88–91，糟糕 80–88，最恶心 70 以下。引用这一年时要说明颜色的意思是推断的。
+- 2025 榜单（2026 年 2 月发布）不再打分，约 210 款，只收 200 到 7 万美元的酒（国产酒例外），每款酒的名字用颜色标出，他说给足了暗示，但没说颜色的意思。按他文中点名的酒推断：红＝超一流（Yquem 1943、1961 La Chapelle、Huet Le Haut-Lieu 1947、Egon Müller Eiswein 1983），蓝＝顶级（Krug Clos du Mesnil 2008、Colgin IX 2019），黑＝正常，橙＝传奇或名贵却老了、名不副实（Le Pin 1982、Vega Sicilia 1962、Rousseau Chambertin 1991、Screaming Eagle 1992），绿＝糟糕（他点名的 Fourrier、Kalin、Les Horées、William Kelley，和最让他失望的 DRC Romanée-Conti 2022），灰＝年度最恶心（Audiffred Reignots 2022）。表里这一年的分数写的就是这些词。换成百分制：${values(['超一流', '顶级', '正常', '老了/失望', '糟糕', '最恶心'])}。「正常」是喝起来和该有的一样：他以前给同一款酒、同一年份打过百分制的，就按最近的那个分（他打过分、2025 年又标黑的 13 款，原来平均 96 分），没打过才算 95。引用这一年时要说明颜色的意思是推断的。
+- 这些换算是按他 2019–2023 年 503 个百分制分数的分布，再用同一款酒在两种评法下的分数对出来的：某一级在榜单里占前百分之几，就对应他百分制分数里同样的那一段。
 - 预测一律用 100 分制。
 
 # 他和酒评家

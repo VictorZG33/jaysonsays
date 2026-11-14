@@ -67,6 +67,16 @@ Each list matches the number of wines, of 100-point wines and of RP 100 wines it
 
 The colours were measured from the pixels, not judged by eye. The framework tells Claude the reading is inferred and to say so.
 
+**Stars, words and colours in points.** Where his verdict is in stars, 2016 words or a 2025 colour, the page shows what it comes to on his 100-point scale ("约合 95 分"), from `SCALE_VALUES` in `reviews.js`. Each grade is matched to the same stretch of the 503 points he gave in 2019–2023: a grade given to the top 9% of a list sits where the top 9% of his points do. Wines he judged both ways check it: 2016's 好喝 comes to 97.0 by the spread and 96.9 by the 9 wines he also scored, 表现正常 to 93.1 both ways, 6★ to 97–98 against 16 wines.
+
+| Grade | Points |
+|---|---|
+| 1–6 stars | 6★ 98, 5★ 96, 4★ 93, 3★ 90, 2★ 87, 1★ 80 |
+| 2016 words | 超级好喝 99, 好喝 97, 表现正常 93, 很普通 90, 不好喝 88, 难喝 86, 超级难喝 80 |
+| 2025 colours | 超一流 100, 顶级 98, 正常 95, 老了/失望 91, 糟糕 88, 最恶心 70 |
+
+A 2025 正常 (black, the middle 60% of that list) comes to 95 by the spread. But the 13 black wines he had scored before averaged 96 there, so it reads as "drank as it should": it counts as the most recent score he gave that wine and vintage, and 95 only if he never scored it. `sim.js` holds every other found grade to the table, so the same grade always shows the same number.
+
 Scores are as he gave them. The notes are paraphrases, never his text, and the page shows only scores, paraphrases and links to the sources.
 
 **Winemakers.** He holds that the winemaker shapes a wine far more than its vineyard, and his verdicts on a producer change when its winemaker does: Realm is "the real Realm" from 2012 (Benoit Touquette arrived in September 2011), Bryant was best under Helen Turley and slipped after 2002, Colgin rose after 2010 (Allison Tauziet, from 2007), Dana stopped being too hard in 2015 (Chris Cooney, from 2015). The framework says which winemakers he admires (Michel Rolland above all, then Thomas Rivers Brown, Philippe Melka and Benoit Touquette, who make his own Fairest Creature) and which he doesn't, from his articles; `WINEMAKERS` says who made which vintages, from the wineries and the wine press, and leaves a gap where no source confirms it. A prediction counts a producer's other vintages as evidence only when the same winemaker made them.

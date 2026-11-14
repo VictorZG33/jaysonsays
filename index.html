@@ -176,6 +176,7 @@ input[type="text"], input[type="password"] {
 .lang-zh .seal .stamp { font-family: var(--display-cjk); font-size: 13px; letter-spacing: 0.3em; text-transform: none; margin-right: -0.3em; }
 .seal .score { font-family: var(--display-latin); font-weight: 700; font-size: 58px; line-height: 1; font-variant-numeric: lining-nums; letter-spacing: -0.01em; }
 .seal .scale { font-family: var(--mono); font-size: 11px; opacity: 0.85; }
+.seal .approx { font-family: var(--mono); font-size: 12px; font-weight: 600; }
 .verdict.predicted .seal { background: transparent; color: var(--garnet); border: 2px dashed var(--garnet); }
 .verdict.none .seal { background: transparent; color: var(--muted); border: 2px dashed var(--rule-strong); }
 .verdict.none .seal .score { font-family: var(--body); font-weight: 500; font-size: 44px; }
@@ -375,6 +376,8 @@ const I18N = {
     stamp: { found: '杰神原评', predicted: '模拟评分', none: '认不出' },
     scaleOf: { 100: '满分 100', stars: '满分 6★', words: '文字评价' },
     key: '怎么看杰神的分：93 及格，95 以上是真喜欢，98 以上惊艳，100 封神。同一款酒，他平均比 Parker 一系的评家低 4 分左右。',
+    approx: (n) => `约合 ${n} 分`,
+    keyApprox: '「约合」的分数是换算出来的：看这一级在他榜单里排在前百分之几，对应他 2019–2023 年 503 个百分制分数里同样的那一段，再拿他用两种评法评过的同一款酒核对。2025 年的颜色本身是推断的；其中「正常」是喝起来和该有的一样，按他以前给这款酒的分算，没打过分的算 95。',
     interestH: '利益相关',
     historyH: '他评过不止一次',
     sogou: (p) => `在搜狗微信里搜「杰神 ${p}」`,
@@ -449,6 +452,8 @@ const I18N = {
     stamp: { found: 'His score', predicted: 'Simulated', none: 'Unknown' },
     scaleOf: { 100: 'out of 100', stars: 'out of 6★', words: 'in words' },
     key: 'Reading his scores: 93 is a pass, 95 and up means he really likes it, 98 and up is stunning, 100 is legendary. On the same wine he averages about 4 points below the Parker school of critics.',
+    approx: (n) => `about ${n} of 100`,
+    keyApprox: 'The “about” score is a conversion: where the grade ranks in his list matched to the same stretch of the 503 points he gave in 2019–2023, checked against wines he judged both ways. The 2025 colours are themselves inferred; 正常 (normal) means the wine drank as it should, so it counts as what he gave that wine before, or 95 if he never scored it.',
     interestH: 'Interest',
     historyH: 'He has judged it more than once',
     sogou: (p) => `Search Sogou’s WeChat search for “杰神 ${p}”`,
@@ -656,18 +661,21 @@ function renderVerdict(v) {
   }
   const srcs = j.sources.filter((s) => isUrl(s.url));
   const scale = T.scaleOf[j.scale] ? j.scale : '100';
+  // his own verdict in stars or words, with what it comes to on his 100-point scale
+  const approx = j.source === 'found' && scale !== '100' && j.score_value >= 50 ? Math.round(j.score_value) : 0;
   // the producer without its Chinese name, for searching his articles, where he writes names in English
   const who = w.producer.replace(/\s*[（(][^）)]*[）)]\s*/g, ' ').trim();
   return renderWine(w) +
     `<article class="verdict ${j.source}">` +
-    `<div class="seal"><span class="stamp">${esc(T.stamp[j.source])}</span><span class="score${scale === 'words' ? ' words' : [...j.score].length > 3 ? ' long' : ''}">${esc(j.score).replace(/★/g, '<i class="star">★</i>')}</span><span class="scale">${esc(T.scaleOf[scale])}</span></div>` +
+    `<div class="seal"><span class="stamp">${esc(T.stamp[j.source])}</span><span class="score${scale === 'words' ? ' words' : [...j.score].length > 3 ? ' long' : ''}">${esc(j.score).replace(/★/g, '<i class="star">★</i>')}</span><span class="scale">${esc(T.scaleOf[scale])}</span>${approx ? `<span class="approx">${esc(T.approx(approx))}</span>` : ''}</div>` +
     `<div class="say">` +
     (j.history ? `<p class="history"><b>${esc(T.historyH)}</b>${esc(j.history)}</p>` : '') +
     (j.interest ? `<p class="interest"><b>${esc(T.interestH)}</b>${esc(j.interest)}</p>` : '') +
     (j.review ? `<p class="review">${esc(j.review)}</p>` : '') +
     `<p class="byline">${esc(j.source === 'found' ? T.byFound : T.byPredicted)}</p>` +
     (j.reasoning ? `<p class="why-h">${esc(T.whyH)}</p><p class="why">${esc(j.reasoning)}</p>` : '') +
-    (scale === '100' ? `<p class="key">${esc(T.key)}</p>` : '') +
+    (approx ? `<p class="key">${esc(T.keyApprox)}</p>` : '') +
+    (scale === '100' || approx ? `<p class="key">${esc(T.key)}</p>` : '') +
     (srcs.length ? `<p class="why-h">${esc(T.srcH[j.source])}</p><ul class="srcs">${srcs.map((s) =>
       `<li><a href="${esc(s.url)}" rel="noopener noreferrer" target="_blank">${esc(s.title || host(s.url))}</a>${s.date ? `<span class="d">${esc(s.date)}</span>` : ''}</li>`).join('')}</ul>` : '') +
     (j.source === 'predicted' && who ? `<p class="sogou"><a href="https://weixin.sogou.com/weixin?type=2&amp;query=${encodeURIComponent('杰神 ' + who)}" rel="noopener noreferrer" target="_blank">${esc(T.sogou(who))}</a><br>${esc(T.sogouHint)}</p>` : '') +

@@ -23,13 +23,17 @@ Object.assign(multi.jieshen, { score: '93', score_value: 93, history: '6★（20
 const worst = JSON.parse(JSON.stringify(found));
 Object.assign(worst.jieshen, { score: '6★ / 100 / 93', score_value: 93 });
 const stars = JSON.parse(JSON.stringify(found));
-Object.assign(stars.wine, { producer: 'Petrus', name: 'Pomerol', vintage: '1983', region: 'Pomerol, Bordeaux, France', grapes: 'Merlot' });
+Object.assign(stars.wine, { producer: 'Petrus', name: 'Pomerol', vintage: '1983', region: 'Pomerol, Bordeaux, France', grapes: 'Merlot', winemaker: '' });
 Object.assign(stars.jieshen, { score: '1★', scale: 'stars', score_value: 80, review: '黑榜上的一瓶：有一股下水道似的臭味，非常糟。', reasoning: '杰神葡萄酒榜单·2018 给了 1 星，是全榜最低。', interest: '', sources: [{ title: '杰神葡萄酒榜单·2018', url: 'https://www.sohu.com/a/291017193_764488', date: '2019-01-23' }] });
 stars.critics = [];
 const words = JSON.parse(JSON.stringify(found));
-Object.assign(words.wine, { producer: 'Domaine de la Romanée-Conti', name: 'Romanée-Conti Grand Cru', vintage: '1990', region: 'Vosne-Romanée, Burgundy, France', grapes: 'Pinot Noir' });
+Object.assign(words.wine, { producer: 'Domaine de la Romanée-Conti', name: 'Romanée-Conti Grand Cru', vintage: '1990', region: 'Vosne-Romanée, Burgundy, France', grapes: 'Pinot Noir', winemaker: '' });
 Object.assign(words.jieshen, { score: '超级好喝', scale: 'words', score_value: 99, review: '2016 年的榜单只有文字评级，这瓶是最高一档。', reasoning: '杰神葡萄酒榜单·2016。', interest: '', sources: [{ title: '杰神葡萄酒榜单·2016', url: 'https://weixin.sogou.com/weixin?type=2&query=x', date: '2017-01-24' }] });
 words.critics = [];
+const colour = JSON.parse(JSON.stringify(found));
+Object.assign(colour.wine, { name: 'The Absurd', vintage: '2019' });
+Object.assign(colour.jieshen, { score: '正常', scale: 'words', score_value: 97, history: '97（2023 榜单）· 正常（2025 榜单，黑色）', review: '2025 年的榜单上这瓶标黑色，就是正常：喝起来和该有的一样。他 2023 年给过 97。', reasoning: '杰神葡萄酒榜单·2025 只给颜色，黑色推断为「正常」；他 2023 年给同一款酒 97，所以约合 97 分。', sources: [{ title: '杰神葡萄酒榜单·2025', url: 'https://weixin.sogou.com/weixin?type=2&query=y', date: '2026-02-09' }] });
+colour.critics = [{ critic: 'Wine Advocate', score: '100', url: '' }];
 const notWine = { wine: { identified: false, producer: '', name: '', vintage: '', region: '', grapes: '', drink_window: '', confidence: 'low', notes: '照片里是一只猫，不是酒标。' }, jieshen: { source: 'none', score: '', score_value: 0, review: '', reasoning: '', sources: [] }, critics: [] };
 const nd = (v) => [
   { type: 'lookup', producer: 'Fait-Main' },
@@ -95,6 +99,8 @@ const keptWine = (v) => [{ type: 'lookup', producer: 'Fait-Main' }, { type: 'cac
   await run('04z-long-score', { reply: nd(worst) });
   await run('04b-found-stars', { reply: nd(stars) });
   await run('04c-found-words-en', { reply: nd(words), lang: 'en' });
+  await run('04d-found-colour', { reply: nd(colour) });
+  await run('04e-found-colour-en-dark', { reply: nd(colour), lang: 'en', dark: true });
   await run('05-notwine', { reply: nd(notWine) });
   await run('06-en-predicted-desktop', { reply: nd(predicted), lang: 'en', width: 1200, height: 900 });
   await run('07-error-503', { reply: (r) => r.fulfill({ status: 503, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: '{"error":"not_configured"}' }) });
