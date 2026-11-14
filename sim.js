@@ -15,7 +15,7 @@
 // way and under wineKey for the wine and vintage Claude's first lookup names, so a wine asked again
 // costs little or nothing; runSimulator checks for a kept answer at that first lookup.
 
-import { FRAMEWORK, WINEMAKERS, REVIEWS, SOURCES } from './reviews.js';
+import { FRAMEWORK, SCALE_VALUES, WINEMAKERS, REVIEWS, SOURCES } from './reviews.js';
 
 // Claude Opus 5.5 reads labels and matches them against his rows best. Sonnet 5.5 costs about half.
 export const SIM_MODEL = 'claude-opus-5-5';
@@ -95,7 +95,7 @@ Every verdict of his that could be collected: his lists of 2016 to 2025 (L16 …
 Identify the wine. Read the producer, cuvée or vineyard, appellation and vintage from the label, or from the visitor's text. If a detail is unreadable or ambiguous, make your best guess, lower the confidence and say what you assumed. The label or the visitor's text decides which wine it is, with what you know of the producer's range; his table and web searches only add facts about that wine. A search result about another wine of the same producer (another cuvée, a white where the wine is red) doesn't change what this wine is and isn't evidence about it. Estimate a drinking window from the wine's reputation, the vintage and today's date. If the image is not a wine label, or the text is not a wine, set identified to false, set source to "none" and explain in a sentence.
 
 Look it up: call lookup_scores with the producer's name in English, as the table would write it, the wine and the vintage. It returns every row of that producer, all wines and vintages. If nothing comes back, try another spelling or a shorter name ("Romanee-Conti" for DRC, "Lafite" for Chateau Lafite Rothschild). You may look up other producers to compare with, up to ${LOOKUPS} lookups in all. A row is his verdict on this wine only when producer, wine and vintage all match; the table may spell names differently from the label. If the same wine appears more than once (two bottles, or two years' lists), put the most recent verdict in score, with its scale and value, and every verdict with its list in history.
-- Found: source "found". Give the score exactly as in the table, and its scale: "100" for the 2019–2023 lists, "stars" for the 2017–2018 lists, "words" for the 2016 grades, for the 2025 colour verdicts (say that the colour's meaning is inferred), for a bottle he marked Corked, Oxidized or Bottle shock, or for a verdict without a score (then give the verdict in two to six characters as the score, e.g. "难喝"). score_value is the score on the 100-point scale: stars by the conversion above, words by your best estimate, and 0 for a faulty bottle. Retell the note in your own words; if there is no note, say so and say what the score means on his scale. Give that source's title, URL and date. Use the critics' scores printed next to it for the critics list.
+- Found: source "found". Give the score exactly as in the table, and its scale: "100" for the 2019–2023 lists, "stars" for the 2017–2018 lists, "words" for the 2016 grades, for the 2025 colour verdicts (say that the colour's meaning is inferred), for a bottle he marked Corked, Oxidized or Bottle shock, or for a verdict without a score (then give the verdict in two to six characters as the score, e.g. "难喝"). score_value is the score on the 100-point scale, by his conversions above: for a 2025 正常, the most recent 100-point score he gave the same wine and vintage if he gave one, otherwise 95; for a grade the conversions don't list, your best estimate on the same scale; 0 for a faulty bottle. Retell the note in your own words; if there is no note, say so and say what the score means on his scale. Give that source's title, URL and date. Use the critics' scores printed next to it for the critics list.
 - Not found: source "predicted". Follow his rules for predicting, on the 100-point scale. The same wine in another vintage, and other wines of the same producer, are your best evidence, but only for vintages the same winemaker made: check who made this vintage in what the lookup lists, and if it doesn't say, from what you reliably know or a search. Anchor on other critics' scores for this exact wine and vintage: search for them with web_search (at most ${SEARCHES} searches, e.g. "<producer> <wine> <vintage> Wine Advocate Jeb Dunnuck score"), unless you already know them reliably or the wine is too obscure to have any. A recent or unreleased vintage often has no scores yet: if no result is about this exact wine and vintage, say so and leave critics empty rather than borrow another wine's. Write a note of 60 to 150 Chinese characters (or 40 to 100 English words) in his voice that names the specific things he would praise or punish. In the reasoning, name the parts of his framework that decide the score and the closest wines in his table. List up to three of those rows' sources as the sources. A prediction is a simulation, and the page labels it as one; don't claim he said it.
 - interest: if the producer is one his company has sold (Realm, Schrader, Myriad, Dana, Tusk) or his own Fairest Creature, say so in one short sentence; otherwise "".
 - critics: other critics' scores for this exact wine and vintage, only from his table, from a search result (give its URL) or from reliable knowledge (URL ""). Otherwise leave the list empty; never guess a critic's score.
@@ -138,7 +138,7 @@ const VERDICT_TOOL = {
           source: { type: 'string', enum: ['found', 'predicted', 'none'], description: 'found: the table has his verdict on this exact wine and vintage. predicted: your simulation. none: no wine identified.' },
           score: S('Found: the most recent verdict, exactly as in the table. Predicted: the most likely score, a whole number. None: ""'),
           scale: { type: 'string', enum: ['100', 'stars', 'words'], description: 'The scale the score is written on' },
-          score_value: { type: 'number', description: 'The score on the 100-point scale, for display; 0 for a faulty bottle or none' },
+          score_value: { type: 'number', description: 'The score on the 100-point scale, shown beside a score in stars or words: by his conversions, a 2025 正常 by what he gave the same wine before; 0 for a faulty bottle or none' },
           history: S('When he has judged this exact wine more than once: every verdict with its list, oldest first, e.g. "6★（2018 榜单）· 100（2019）· 93（2021）". Otherwise ""'),
           review: S('Found: his note retold in your words. Predicted: the note in his voice. None: ""'),
           reasoning: S('Two to four sentences on why this score: the parts of his framework that decide it and the closest wines he has scored. For found, which list or article and when.'),
@@ -246,6 +246,14 @@ export function wineKey(lang, { producer, wine, vintage }) {
   return p && /^(\d{4}|NV)$/.test(v) ? `${ANSWER_VERSION}:${lang}:w:${p}|${words(wine).join(' ')}|${v}` : null;
 }
 
+// Holds a found verdict in stars or words to his conversion (reviews.js), so the same grade always
+// shows the same number; a 2025 正常 keeps Claude's value, which is what he gave that wine before
+export function settleScore(v) {
+  const j = v && v.jieshen;
+  if (j && j.source === 'found' && j.scale !== '100' && j.score !== '正常' && j.score in SCALE_VALUES) j.score_value = SCALE_VALUES[j.score];
+  return v;
+}
+
 // Runs one question to the end and reports what happens through emit():
 //   { type: 'lookup', producer }  his table is being read for a producer
 //   { type: 'search', query }     a web search started
@@ -300,7 +308,7 @@ export async function runSimulator(client, x, emit, { recall } = {}) {
     req.messages = [...req.messages, { role: 'assistant', content: msg.content }, { role: 'user', content: results }];
   }
   const call = msg.content.find((b) => b.type === 'tool_use' && b.name === 'give_verdict');
-  if (call) emit({ type: 'verdict', verdict: call.input });
+  if (call) emit({ type: 'verdict', verdict: settleScore(call.input) });
   else {
     const text = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
     if (text) emit({ type: 'text', text });

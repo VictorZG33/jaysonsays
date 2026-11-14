@@ -3,7 +3,8 @@
 // emits. No key needed.
 //   cd worker && npm ci && cd .. && node tools/test-engine.mjs
 import Anthropic from '../worker/node_modules/@anthropic-ai/sdk/index.mjs';
-import { runSimulator, checkInput, lookupScores, textKey, wineKey, ANSWER_VERSION } from '../sim.js';
+import { runSimulator, checkInput, lookupScores, textKey, wineKey, settleScore, ANSWER_VERSION } from '../sim.js';
+import { FRAMEWORK } from '../reviews.js';
 import assert from 'node:assert/strict';
 
 // The lookup finds producers however they are spelled, and only them
@@ -33,6 +34,18 @@ assert.equal(wineKey('zh', { producer: 'Realm Cellars', wine: 'The Bard', vintag
 assert.equal(wineKey('zh', { producer: 'Realm', wine: 'Bard', vintage: '2024' }), wineKey('zh', { producer: 'Realm Cellars', wine: 'The Bard', vintage: '2024' }));
 assert.equal(wineKey('zh', { producer: 'Krug', wine: 'Grande Cuvée', vintage: 'nv' }), `${ANSWER_VERSION}:zh:w:krug|grande cuvee|NV`);
 assert.equal(wineKey('zh', { producer: 'Realm', wine: 'The Bard', vintage: '' }), null);
+
+// A found verdict in stars or words shows his conversion; a 2025 正常 keeps what he gave the wine before
+const jv = (score, scale, score_value, source = 'found') => settleScore({ jieshen: { source, score, scale, score_value } }).jieshen.score_value;
+assert.equal(jv('5★', 'stars', 90), 96);
+assert.equal(jv('表现正常', 'words', 95), 93);
+assert.equal(jv('顶级', 'words', 96), 98);
+assert.equal(jv('正常', 'words', 97), 97);
+assert.equal(jv('这个价位喝起来一般', 'words', 89), 89);
+assert.equal(jv('93', '100', 93), 93);
+assert.equal(jv('5★', 'stars', 90, 'predicted'), 90);
+assert.match(FRAMEWORK, /换成百分制：6★ 98，5★ 96，4★ 93，3★ 90，2★ 87，1★ 80。/);
+assert.match(FRAMEWORK, /换成百分制：超一流 100，顶级 98，正常 95，老了\/失望 91，糟糕 88，最恶心 70。/);
 
 const sse = (events) => events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join('');
 const msgStart = (id) => ({ type: 'message_start', message: { id, type: 'message', role: 'assistant', model: 'claude-opus-5-5', content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1000, output_tokens: 1, cache_read_input_tokens: 500, cache_creation_input_tokens: 0 } } });
